@@ -1,0 +1,41 @@
+apply plugin: 'java'
+apply plugin: 'maven'
+apply plugin: 'eclipse'
+
+sourceCompatibility = JavaVersion.VERSION_1_7
+targetCompatibility = JavaVersion.VERSION_1_7
+
+group = 'com.projectkaiser.scm'
+version = '1.0-SNAPSHOT'
+
+repositories {
+	mavenCentral()
+	maven { 
+		url "https://jitpack.io" 
+	}
+}
+
+defaultTasks 'build';
+
+dependencies {
+	compile 'com.github.ProjectKaiser:pk-vcs-api:master-SNAPSHOT'
+    compile 'org.tmatesoft.svnkit:svnkit:1.8.11'
+    compile 'commons-logging:commons-logging:1.2'
+    
+    testCompile 'junit:junit:4.12'
+}
+
+task sourcesJar(type: Jar, dependsOn: classes) {
+	classifier = 'sources'
+	from sourceSets.main.allSource
+}
+	
+task javadocJar(type: Jar, dependsOn: javadoc) {
+	classifier = 'javadoc'
+	from javadoc.destinationDir
+}
+
+artifacts {
+	archives sourcesJar
+	archives javadocJar
+}
