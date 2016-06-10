@@ -215,7 +215,8 @@ public class SVNVCS extends AbstractVCS implements IVCS {
 
 	@Override
 	public void setCredentials(String user, String password) {
-	
+		userPassAuth = SVNPasswordAuthentication.newInstance(user, password.toCharArray(), true, trunkSVNUrl, false);
+		authManager.setAuthentications(new SVNAuthentication[] {userPassAuth});
 	}
 
 	@Override
