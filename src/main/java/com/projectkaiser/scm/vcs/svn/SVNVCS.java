@@ -3,12 +3,10 @@ package com.projectkaiser.scm.vcs.svn;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileWriter;
-import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 
-import org.apache.commons.logging.Log;
 import org.tmatesoft.svn.core.SVNDepth;
 import org.tmatesoft.svn.core.SVNException;
 import org.tmatesoft.svn.core.SVNProperties;
@@ -37,15 +35,15 @@ import org.tmatesoft.svn.core.wc.SVNUpdateClient;
 import org.tmatesoft.svn.core.wc.SVNWCClient;
 import org.tmatesoft.svn.core.wc.SVNWCUtil;
 
-import com.projectkaiser.scm.vcs.api.AbstractVCS;
 import com.projectkaiser.scm.vcs.api.IVCS;
 import com.projectkaiser.scm.vcs.api.PKVCSMergeResult;
-import com.projectkaiser.scm.vcs.api.VCSWorkspace;
 import com.projectkaiser.scm.vcs.api.exceptions.EVCSBranchExists;
 import com.projectkaiser.scm.vcs.api.exceptions.EVCSException;
 import com.projectkaiser.scm.vcs.api.exceptions.EVCSFileNotFound;
+import com.projectkaiser.scm.vcs.api.workingcopy.IVCSLockedWorkingCopy;
+import com.projectkaiser.scm.vcs.api.workingcopy.IVCSRepositoryWorkspace;
 
-public class SVNVCS extends AbstractVCS implements IVCS {
+public class SVNVCS implements IVCS {
 	
 	private static final int SVN_PATH_IS_NOT_WORKING_COPY_ERROR_CODE = 155007;
 	private static final int SVN_ITEM_EXISTS_ERROR_CODE = 160020;
@@ -56,28 +54,29 @@ public class SVNVCS extends AbstractVCS implements IVCS {
 	private SVNClientManager clientManager;
 	private SVNURL trunkSVNUrl;
 	private SVNAuthentication userPassAuth;
+	private IVCSRepositoryWorkspace repo;
 	
 	public SVNClientManager getClientManager() {
 		return clientManager;
 	}
 	
-	public SVNVCS(Log logger, String workspaceBasePath, String trunkUrl, String user, String password) {
-		super(logger, workspaceBasePath, trunkUrl);
-		trunkUrl = trunkUrl.trim();
-		if (!trunkUrl.endsWith("\\") && !trunkUrl.endsWith("/")) {
-			trunkUrl += "/";
-		}
-		
+	public ISVNOptions getOptions() {
+		return options;
+	}
+
+	public SVNVCS(IVCSRepositoryWorkspace repo, String user, String password) {
+		this.repo = repo;
 		DAVRepositoryFactory.setup(); 
         options = SVNWCUtil.createDefaultOptions(true); 
 		try {
-			trunkSVNUrl = SVNURL.parseURIEncoded(trunkUrl);
+			trunkSVNUrl = SVNURL.parseURIEncoded(repo.getRepoUrl().replace("\\", "/"));
 			repository = SVNRepositoryFactory.create(trunkSVNUrl);
 		} catch (SVNException e) {
 			throw new EVCSException(e);
 		}
 		
-		userPassAuth = SVNPasswordAuthentication.newInstance(user, password.toCharArray(), true, trunkSVNUrl, false);
+		userPassAuth = SVNPasswordAuthentication.newInstance(user, 
+				(password == null ? null : password.toCharArray()), true, trunkSVNUrl, false);
 		authManager = new BasicAuthenticationManager(new SVNAuthentication[] {userPassAuth});
 		repository.setAuthenticationManager(authManager);
 		
@@ -97,8 +96,8 @@ public class SVNVCS extends AbstractVCS implements IVCS {
 		SVNURL urlObj;
 		SVNURL toUrl;
 		try {
-			urlObj = SVNURL.parseURIEncoded(baseUrl + srcBranchPath);
-			toUrl = SVNURL.parseURIEncoded(baseUrl+ dstBranchPath);
+			urlObj = SVNURL.parseURIEncoded(repo.getRepoUrl() + "/" + srcBranchPath);
+			toUrl = SVNURL.parseURIEncoded(repo.getRepoUrl() + "/" + dstBranchPath);
 		
 			SVNCopyClient copyClient = new SVNCopyClient(authManager, options);
 			SVNCopySource copySource = new SVNCopySource(SVNRevision.UNDEFINED, SVNRevision.HEAD,
@@ -122,7 +121,7 @@ public class SVNVCS extends AbstractVCS implements IVCS {
 	public void deleteBranch(String branchPath, String commitMessage) {
 		SVNCommitClient client = new SVNCommitClient(authManager, options);
 		try {
-			client.doDelete(new SVNURL[] {SVNURL.parseURIEncoded(baseUrl + branchPath)}, commitMessage);
+			client.doDelete(new SVNURL[] {SVNURL.parseURIEncoded(getBranchUrl(branchPath))}, commitMessage);
 		} catch (SVNException e) {
 			throw new EVCSException(e);
 		}
@@ -133,9 +132,8 @@ public class SVNVCS extends AbstractVCS implements IVCS {
 		SVNDiffClient diffClient = clientManager.getDiffClient();
 		SVNCommitClient client = new SVNCommitClient(authManager, options);
 		try {
-			VCSWorkspace workspace = VCSWorkspace.getLockedWorkspace(repoFolder);
-			try {
-				checkout(baseUrl + dstBranchPath, workspace.getFolder());
+			try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
+				checkout(getBranchUrl(dstBranchPath), wc.getFolder());
 				
 				DefaultSVNOptions options = (DefaultSVNOptions) diffClient.getOptions();
 				final PKVCSMergeResult res = new PKVCSMergeResult();
@@ -151,40 +149,47 @@ public class SVNVCS extends AbstractVCS implements IVCS {
 
 				try {
 					SVNRevisionRange range = new SVNRevisionRange(SVNRevision.create(1), SVNRevision.HEAD);
-					diffClient.doMerge(SVNURL.parseURIEncoded(baseUrl + srcBranchPath),
+					diffClient.doMerge(SVNURL.parseURIEncoded(getBranchUrl(srcBranchPath)),
 							SVNRevision.HEAD, Collections.singleton(range),
-							workspace.getFolder(), SVNDepth.UNKNOWN, true, false, false, false);
+							wc.getFolder(), SVNDepth.UNKNOWN, true, false, false, false);
 					
-//					diffClient.doMergeReIntegrate(SVNURL.parseURIEncoded(baseUrl + srcBranchPath), SVNRevision.HEAD, 
-//							workspace.getFolder(), false);
-//					
 					res.setSuccess(res.getConflictingFiles().isEmpty());
 					if (res.getSuccess()) {
-						client.doCommit(new File[] {workspace.getFolder()}, false, commitMessage, 
+						client.doCommit(new File[] {wc.getFolder()}, false, commitMessage, 
 								new SVNProperties(), null, true, true, SVNDepth.INFINITY);
 					} else {
 						try {
-							SVNWCClient wcClient = new SVNWCClient(authManager, options);
-							wcClient.doRevert(new File[] {workspace.getFolder()}, SVNDepth.INFINITY, null);
+							SVNWCClient wcClient = getRevertClient(options);
+							wcClient.doRevert(new File[] {wc.getFolder()}, SVNDepth.INFINITY, null);
 						} catch (Exception e) {
 							// It doesn't matter if we failed to revert. Just make the workspace corrupted.
-							workspace.setCorrupt(true);
+							wc.setCorrupted(true);
 						}
 					}
 				} catch (Exception e) {
-					workspace.setCorrupt(true);
+					wc.setCorrupted(true);
 					throw e;
 				}
 				
 				return res;
-			} finally {
-				workspace.unlock();
 			} 
 		} catch (SVNException e) {
 			throw new EVCSException(e);
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
+	}
+
+	public SVNWCClient getRevertClient(DefaultSVNOptions options) {
+		return new SVNWCClient(authManager, options);
+	}
+
+	private String getBranchUrl(String dstBranchPath) {
+		String str = repo.getRepoUrl().trim();
+		if (str.endsWith("/") || str.endsWith("\\")) {
+			str = str.substring(0,  str.length() - 1);
+		}
+		return str + "/" + dstBranchPath;
 	}
 	
 	public void checkout(String sourceUrl, File destPath) throws SVNException {
@@ -249,27 +254,30 @@ public class SVNVCS extends AbstractVCS implements IVCS {
 
 	@Override
 	public void setFileContent(String branchName, String filePath, String content, String commitMessage) {
-		VCSWorkspace workspace = VCSWorkspace.getLockedWorkspace(repoFolder);
 		try {
-			try {
-				checkout(baseUrl + branchName, workspace.getFolder());
-				File file = new File(workspace.getFolder(), filePath);
-				FileWriter writer = new FileWriter(file);
-				writer.write(content);
-				writer.close();
+			try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
 				
-				clientManager
-						.getCommitClient()
-						.doCommit(new File[] { workspace.getFolder() }, false, commitMessage,
-								new SVNProperties(), null, false, false, SVNDepth.INFINITY);
-				
-			} catch (SVNException e) {
-				throw new EVCSException(e);
-			} catch (IOException e) {
-				throw new RuntimeException(e);
+					checkout(repo.getRepoUrl() + "/" + branchName, wc.getFolder());
+					File file = new File(wc.getFolder(), filePath);
+					FileWriter writer = new FileWriter(file);
+					writer.write(content);
+					writer.close();
+					
+					clientManager
+							.getCommitClient()
+							.doCommit(new File[] { wc.getFolder() }, false, commitMessage,
+									new SVNProperties(), null, false, false, SVNDepth.INFINITY);
 			}
-		} finally {
-			workspace.unlock();
+		} catch (SVNException e) {
+			throw new EVCSException(e);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
 		}
+	}
+
+	@Override
+	public String getRepoUrl() {
+		// TODO Auto-generated method stub
+		return null;
 	}
 }
