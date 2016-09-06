@@ -5,7 +5,10 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 
 import org.tmatesoft.svn.core.SVNDepth;
 import org.tmatesoft.svn.core.SVNException;
@@ -277,7 +280,24 @@ public class SVNVCS implements IVCS {
 
 	@Override
 	public String getRepoUrl() {
-		// TODO Auto-generated method stub
-		return null;
+		return repo.getRepoUrl();
+	}
+
+	@Override
+	public List<String> getBranchesDiff(String srcBranchName, String destBranchName) {
+		SVNDiffClient diffClient = clientManager.getDiffClient();
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		Collection<String> res = new ArrayList<>();
+		try {
+			diffClient.doDiff(new File(getBranchUrl(srcBranchName)), SVNRevision.HEAD, 
+					new File(getBranchUrl(destBranchName)), SVNRevision.HEAD, 
+					SVNDepth.UNKNOWN, false /*useAncestry*/, baos, res);
+			
+			return new ArrayList<String>(res);
+		} catch (SVNException e) {
+			throw new EVCSException(e);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
 	}
 }

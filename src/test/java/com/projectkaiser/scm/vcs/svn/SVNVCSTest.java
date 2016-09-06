@@ -137,7 +137,9 @@ public class SVNVCSTest extends VCSAbstractTest {
 		svn
 				.getClientManager()
 				.getWCClient()
-				.doAdd(new File(wc.getFolder(), filePath), false, false, false, SVNDepth.EMPTY, false, true);
+				.doAdd(new File(wc.getFolder(), filePath), 
+						true /* force, avoiding "file is already under version control" exception*/,
+						false, false, SVNDepth.EMPTY, false, true);
 
 		svn
 				.getClientManager()
