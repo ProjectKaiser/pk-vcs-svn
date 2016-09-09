@@ -21,6 +21,7 @@ import org.tmatesoft.svn.core.io.SVNRepository;
 import org.tmatesoft.svn.core.io.SVNRepositoryFactory;
 import org.tmatesoft.svn.core.wc.SVNWCClient;
 
+import com.projectkaiser.scm.vcs.api.IVCS;
 import com.projectkaiser.scm.vcs.api.abstracttest.VCSAbstractTest;
 import com.projectkaiser.scm.vcs.api.workingcopy.IVCSLockedWorkingCopy;
 import com.projectkaiser.scm.vcs.api.workingcopy.IVCSRepositoryWorkspace;
@@ -55,14 +56,14 @@ public class SVNVCSTest extends VCSAbstractTest {
 
 	@Override
 	protected String getVCSRepoUrl() {
-		return "file:///" + WORKSPACE_DIR.replace("\\", "/") + "/";
+		return "file:///" + localVCSWorkspace.getHomeFolder().getPath().replace("\\", "/") + "/";
 	}
 
 	@Override
-	protected void createVCS(IVCSRepositoryWorkspace mockedVCSRepo) {
+	protected IVCS getVCS(IVCSRepositoryWorkspace mockedVCSRepo) {
 		// nulls as user and pwd because we using file repository, not server
-		svn = Mockito.spy(new SVNVCS(mockedVCSRepo, null, null)); 
-		vcs = svn;
+		svn = Mockito.spy(new SVNVCS(mockedVCSRepo, null, null));
+		return svn;
 	}
 	
 	private void listEntries(Set<String> entries, String path) throws SVNException {
