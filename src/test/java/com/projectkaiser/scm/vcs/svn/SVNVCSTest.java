@@ -55,7 +55,7 @@ public class SVNVCSTest extends VCSAbstractTest {
 	}
 
 	@Override
-	protected String getVCSRepoUrl() {
+	protected String getTestRepoUrl() {
 		return "file:///" + localVCSWorkspace.getHomeFolder().getPath().replace("\\", "/") + "/";
 	}
 
