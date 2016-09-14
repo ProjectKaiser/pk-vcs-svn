@@ -6,10 +6,10 @@ import java.io.FileWriter;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.commons.io.FileUtils;
 import org.tmatesoft.svn.core.SVNDepth;
 import org.tmatesoft.svn.core.SVNException;
 import org.tmatesoft.svn.core.SVNProperties;
@@ -37,6 +37,11 @@ import org.tmatesoft.svn.core.wc.SVNRevisionRange;
 import org.tmatesoft.svn.core.wc.SVNUpdateClient;
 import org.tmatesoft.svn.core.wc.SVNWCClient;
 import org.tmatesoft.svn.core.wc.SVNWCUtil;
+import org.tmatesoft.svn.core.wc2.ISvnObjectReceiver;
+import org.tmatesoft.svn.core.wc2.SvnDiffStatus;
+import org.tmatesoft.svn.core.wc2.SvnDiffSummarize;
+import org.tmatesoft.svn.core.wc2.SvnOperationFactory;
+import org.tmatesoft.svn.core.wc2.SvnTarget;
 
 import com.projectkaiser.scm.vcs.api.IVCS;
 import com.projectkaiser.scm.vcs.api.PKVCSMergeResult;
@@ -259,12 +264,25 @@ public class SVNVCS implements IVCS {
 	public void setFileContent(String branchName, String filePath, String content, String commitMessage) {
 		try {
 			try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
-				
 					checkout(repo.getRepoUrl() + "/" + branchName, wc.getFolder());
 					File file = new File(wc.getFolder(), filePath);
+					Boolean needToAdd = !file.exists();
+					if (!file.exists()) {
+						FileUtils.forceMkdir(file.getParentFile());
+						file.createNewFile();
+					}
+					
 					FileWriter writer = new FileWriter(file);
 					writer.write(content);
 					writer.close();
+						
+					if (needToAdd) {
+						clientManager
+								.getWCClient()
+								.doAdd(file, 
+										true /* force, avoiding "file is already under version control" exception*/,
+										false, false, SVNDepth.EMPTY, false, true);
+					}
 					
 					clientManager
 							.getCommitClient()
@@ -284,16 +302,23 @@ public class SVNVCS implements IVCS {
 	}
 
 	@Override
-	public List<String> getBranchesDiff(String srcBranchName, String destBranchName) {
-		SVNDiffClient diffClient = clientManager.getDiffClient();
-		ByteArrayOutputStream baos = new ByteArrayOutputStream();
-		Collection<String> res = new ArrayList<>();
+	public List<String> getBranchesDiff(final String srcBranchName, final String destBranchName) {
 		try {
-			diffClient.doDiff(new File(getBranchUrl(srcBranchName)), SVNRevision.HEAD, 
-					new File(getBranchUrl(destBranchName)), SVNRevision.HEAD, 
-					SVNDepth.UNKNOWN, false /*useAncestry*/, baos, res);
-			
-			return new ArrayList<String>(res);
+			final SvnOperationFactory svnOperationFactory = new SvnOperationFactory();
+			final SvnDiffSummarize diff = svnOperationFactory.createDiffSummarize();
+			diff.setSources(
+					SvnTarget.fromURL(SVNURL.parseURIEncoded(getBranchUrl(srcBranchName)), SVNRevision.HEAD),
+					SvnTarget.fromURL(SVNURL.parseURIEncoded(getBranchUrl(destBranchName)), SVNRevision.HEAD));
+			final List<String> res = new ArrayList<>();
+			final String repoUrl = getRepoUrl();
+			diff.setReceiver(new ISvnObjectReceiver<SvnDiffStatus>() {
+	            public void receive(SvnTarget target, SvnDiffStatus diffStatus) throws SVNException {
+	                res.add(diffStatus.getUrl().toString().replace(repoUrl + "/" + srcBranchName + "/", ""));
+	            }
+	        });
+			diff.run();
+			repo.getRepoUrl();
+			return res;
 		} catch (SVNException e) {
 			throw new EVCSException(e);
 		} catch (Exception e) {
