@@ -1,6 +1,5 @@
 # Overview
-
-Pk-vcs-svn is [pk-vcs-api](https://github.com/ProjectKaiser/pk-vcs-api) IVCS implementation for SVN repositories.
+Pk-vcs-svn is lightweight library for execute basic SVN VCS operations (merge, branch create etc). It uses [pk-vcs-api](https://github.com/ProjectKaiser/pk-vcs-api) exposing IVCS implementation for SVN repositories and [SVNKit](https://svnkit.com/) as framework to work with SVN repositories
 
 # Terms
 - Workspace Home
@@ -10,10 +9,10 @@ Pk-vcs-svn is [pk-vcs-api](https://github.com/ProjectKaiser/pk-vcs-api) IVCS imp
 - Locked Working Copy, LWC
   - Folder where vcs-related operations are executed. Provides thread- and process-safe repository of working folders. See [pk-vcs-api](https://github.com/ProjectKaiser/pk-vcs-api) for details
 - Test Repository
+  - A SVN repository used for functional testing
   - Local file system is used, no dedicated server
-  - Generates new before and deletes after each test
+  - Creates new before and deletes after each test
   - Named randomly (uuid is used) 
-  - [Kohsuke Github API](http://github-api.kohsuke.org/) is used as to work with Github API
 
 # Using pk-vcs-git
 - Add github-hosted pk-vcs-svn project as maven dependency using [jitpack.io](https://jitpack.io/). As an example, add following to gradle.build file:
@@ -47,10 +46,8 @@ Pk-vcs-svn is [pk-vcs-api](https://github.com/ProjectKaiser/pk-vcs-api) IVCS imp
 - Use `vcs.setProxy()` and `vcs.setCredentials()` if neccessary
 
 # Implementation details
-
 - [SVNKit](https://svnkit.com/) is used for manage SVN repositories
 - LWC is obtained if neccessary
 
 # Functional testing
-
 - To execute tests just run SVNVCSTest class as JUnit test. Tests from VCSAbstractTest class will be executed. See  [pk-vcs-test](https://github.com/ProjectKaiser/pk-vcs-test) for details
