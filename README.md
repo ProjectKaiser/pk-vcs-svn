@@ -48,7 +48,7 @@ Pk-vcs-svn is lightweight library for execute basic SVN VCS operations (merge, b
 
 # Implementation details
 - [SVNKit](https://svnkit.com/) is used for manage SVN repositories
-- LWC is obtained if neccessary
+- LWC is obtained automatically when neccessary
 
 # Functional testing
 - To execute tests just run SVNVCSTest class as JUnit test. Tests from VCSAbstractTest class will be executed. See  [pk-vcs-test](https://github.com/ProjectKaiser/pk-vcs-test) for details
