@@ -14,7 +14,7 @@ Pk-vcs-svn is lightweight library for execute basic SVN VCS operations (merge, b
   - Creates new before and deletes after each test
   - Named randomly (uuid is used) 
 
-# Using pk-vcs-git
+# Using pk-vcs-svn
 - Add github-hosted pk-vcs-svn project as maven dependency using [jitpack.io](https://jitpack.io/). As an example, add following to gradle.build file:
 	```gradle
 	allprojects {
@@ -44,11 +44,19 @@ Pk-vcs-svn is lightweight library for execute basic SVN VCS operations (merge, b
 	IVCS vcs = new SVNVCS(repoWorkspace, username, pass);
 ```
 - Use methods of `IVCS` interface. See [pk-vcs-api](https://github.com/ProjectKaiser/pk-vcs-api) for details
-- Use `vcs.setProxy()` and `vcs.setCredentials()` if neccessary
+- Use `vcs.setProxy()` and `vcs.setCredentials()` if necessary
 
 # Implementation details
 - [SVNKit](https://svnkit.com/) is used for manage SVN repositories
-- LWC is obtained automatically when neccessary
+- LWC is obtained automatically when necessary
 
 # Functional testing
 - To execute tests just run SVNVCSTest class as JUnit test. Tests from VCSAbstractTest class will be executed. See  [pk-vcs-test](https://github.com/ProjectKaiser/pk-vcs-test) for details
+
+# Limitations
+- According to IVCS description `IVCS.getBranches()` should return list of user-created branches. But a branch and a dir are the same for SVN. So `SVNVCS.getBranches()` returns set of first level folders of "Branches/" branch and "Trunk" branch. I.e.:
+	- Assume we have following directory structure:
+		- Branches/Br1/Folder/file.txt
+		- Branches/Br2/Folder/file.txt
+		- Trunk/Folder/file.txt
+	- Then `SVNVCS.getBranches()` method will return [Br1, Br2, Trunk] 
