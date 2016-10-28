@@ -330,11 +330,22 @@ public class SVNVCS implements IVCS {
 	@Override
 	public List<VCSDiffEntry> getBranchesDiff(final String srcBranchName, final String destBranchName) {
 		try {
+			final List<SVNLogEntry> entries = new ArrayList<>();
+			repository.log(new String[] { "branches/" + srcBranchName }, -1 /* start from head descending */, 
+					0, true, true, -1, new ISVNLogEntryHandler() {
+				@Override
+				public void handleLogEntry(SVNLogEntry logEntry) throws SVNException {
+					entries.add(logEntry);
+				}
+			});
+			SVNLogEntry branchFirstCommit = entries.get(entries.size() - 1);
+			
 			SvnOperationFactory svnOperationFactory = new SvnOperationFactory();
 			SvnDiffSummarize diff = svnOperationFactory.createDiffSummarize();
 			diff.setSources(
-					SvnTarget.fromURL(getBranchUrl(destBranchName), SVNRevision.HEAD),
+					SvnTarget.fromURL(getBranchUrl(srcBranchName), SVNRevision.create(branchFirstCommit.getRevision())),
 					SvnTarget.fromURL(getBranchUrl(srcBranchName), SVNRevision.HEAD));
+			
 			final List<VCSDiffEntry> res = new ArrayList<>();
 			diff.setReceiver(new ISvnObjectReceiver<SvnDiffStatus>() {
 	            public void receive(SvnTarget target, SvnDiffStatus diffStatus) throws SVNException {
@@ -411,7 +422,8 @@ public class SVNVCS implements IVCS {
 	public List<String> getCommitMessages(String branchName, Integer limit) {
 		final List<String> res = new ArrayList<>();
 		try {
-			repository.log(new String[] { branchName }, -1 /* start from head descending */, 
+			repository.log(new String[] { branchName == null ? MASTER_PATH : BRANCHES_PATH + branchName }, 
+					-1 /* start from head descending */, 
 					0, true, true, limit, new ISVNLogEntryHandler() {
 				@Override
 				public void handleLogEntry(SVNLogEntry logEntry) throws SVNException {
