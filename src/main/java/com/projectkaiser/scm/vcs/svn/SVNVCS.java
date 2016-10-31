@@ -121,10 +121,10 @@ public class SVNVCS implements IVCS {
 	}
 	
 	@Override
-	public void createBranch(String srcBranchPath, String dstBranchPath, String commitMessage) {
+	public void createBranch(String srcBranchName, String dstBranchName, String commitMessage) {
 		try {
-			SVNURL fromUrl = getBranchUrl(srcBranchPath);
-			SVNURL toUrl = getBranchUrl(dstBranchPath);
+			SVNURL fromUrl = getBranchUrl(srcBranchName);
+			SVNURL toUrl = getBranchUrl(dstBranchName);
 			createBranch(fromUrl, toUrl, commitMessage);
 		} catch (SVNException e) {
 			throw new EVCSException(e);
@@ -159,22 +159,22 @@ public class SVNVCS implements IVCS {
 	}
 
 	@Override
-	public void deleteBranch(String branchPath, String commitMessage) {
+	public void deleteBranch(String branchName, String commitMessage) {
 		try {
 			clientManager
 					.getCommitClient()
-					.doDelete(new SVNURL[] { getBranchUrl(branchPath) }, commitMessage);
+					.doDelete(new SVNURL[] { getBranchUrl(branchName) }, commitMessage);
 		} catch (SVNException e) {
 			throw new EVCSException(e);
 		}
 	}
 	
 	@Override
-	public VCSMergeResult merge(String srcBranchPath, String dstBranchPath, String commitMessage) {
+	public VCSMergeResult merge(String srcBranch“Ù¸Û, String dstBranchName, String commitMessage) {
 		SVNDiffClient diffClient = clientManager.getDiffClient();
 		try {
 			try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
-				checkout(getBranchUrl(dstBranchPath), wc.getFolder());
+				checkout(getBranchUrl(dstBranchName), wc.getFolder());
 				
 				DefaultSVNOptions options = (DefaultSVNOptions) diffClient.getOptions();
 				final VCSMergeResult res = new VCSMergeResult();
@@ -190,7 +190,7 @@ public class SVNVCS implements IVCS {
 
 				try {
 					SVNRevisionRange range = new SVNRevisionRange(SVNRevision.create(1), SVNRevision.HEAD);
-					diffClient.doMerge(getBranchUrl(srcBranchPath),
+					diffClient.doMerge(getBranchUrl(srcBranch“Ù¸Û),
 							SVNRevision.HEAD, Collections.singleton(range),
 							wc.getFolder(), SVNDepth.UNKNOWN, true, false, false, false);
 					
@@ -328,7 +328,7 @@ public class SVNVCS implements IVCS {
 	}
 
 	@Override
-	public List<VCSDiffEntry> getBranchesDiff(final String srcBranchName, final String destBranchName) {
+	public List<VCSDiffEntry> getBranchesDiff(final String srcBranchName, final String dstBranchName) {
 		try {
 			final List<SVNLogEntry> entries = new ArrayList<>();
 			repository.log(new String[] { "branches/" + srcBranchName }, -1 /* start from head descending */, 

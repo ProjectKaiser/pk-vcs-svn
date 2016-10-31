@@ -67,4 +67,5 @@ Features:
 		- Branches/Br1/Folder/file.txt
 		- Branches/Br2/Folder/file.txt
 		- Trunk/Folder/file.txt
+		- Tags/Tag1/
 	- Then `SVNVCS.getBranches()` method will return [Br1, Br2, Trunk] 
