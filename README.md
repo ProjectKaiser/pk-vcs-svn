@@ -1,10 +1,12 @@
+[![Release](https://jitpack.io/v/ProjectKaiser/pk-vcs-svn.svg)](https://jitpack.io/#ProjectKaiser/pk-vcs-svn)	
+
 # Overview
 Pk-vcs-svn is lightweight library for execute basic SVN VCS operations (merge, branch create etc). It uses [pk-vcs-api](https://github.com/ProjectKaiser/pk-vcs-api) exposing IVCS implementation for SVN repositories and [SVNKit](https://svnkit.com/) as framework to work with SVN repositories.
 Features:
 - Branch create and remove
 - Branch merge returning result(success or list of conflicted files)
 - Commit messages list
-- Summarized branch changes list
+- Summarized diff between branches
 - Branches list
 - File content getting and setting
 - File create and remove
@@ -68,4 +70,4 @@ Features:
 		- Branches/Br2/Folder/file.txt
 		- Trunk/Folder/file.txt
 		- Tags/Tag1/
-	- Then `SVNVCS.getBranches()` method will return [Br1, Br2, Trunk] 
+	- Then `SVNVCS.getBranches()` method will return [Br1, Br2, Trunk]
