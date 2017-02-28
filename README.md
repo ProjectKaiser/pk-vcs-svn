@@ -25,7 +25,7 @@ Features:
   - Named randomly (uuid is used) 
 
 # Using pk-vcs-svn
-- Add github-hosted pk-vcs-svn project as maven dependency using [jitpack.io](https://jitpack.io/). As an example, add following to gradle.build file:
+- Add github-hosted pk-vcs-svn and pk-vcs-api projects as maven dependencies using [jitpack.io](https://jitpack.io/). As an example, add following to gradle.build file:
 	```gradle
 	allprojects {
 		repositories {
@@ -35,6 +35,7 @@ Features:
 	
 	dependencies {
 		compile 'com.github.ProjectKaiser:pk-vcs-svn:master-SNAPSHOT'
+		compile 'com.github.ProjectKaiser:pk-vcs-api:master-SNAPSHOT'
 	}
 	```
 - Create Workspace Home instance providing path to any folder as Workspace Home folder path. This folder will contain repositories folders (if different vcs or repositories are used)
