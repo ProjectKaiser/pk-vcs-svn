@@ -3,6 +3,7 @@ package com.projectkaiser.scm.vcs.svn;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -20,6 +21,7 @@ import org.tmatesoft.svn.core.SVNException;
 import org.tmatesoft.svn.core.SVNLogEntry;
 import org.tmatesoft.svn.core.SVNNodeKind;
 import org.tmatesoft.svn.core.SVNProperties;
+import org.tmatesoft.svn.core.SVNRevisionProperty;
 import org.tmatesoft.svn.core.SVNURL;
 import org.tmatesoft.svn.core.auth.BasicAuthenticationManager;
 import org.tmatesoft.svn.core.auth.SVNAuthentication;
@@ -27,24 +29,28 @@ import org.tmatesoft.svn.core.auth.SVNPasswordAuthentication;
 import org.tmatesoft.svn.core.internal.wc.DefaultSVNOptions;
 import org.tmatesoft.svn.core.io.SVNRepository;
 import org.tmatesoft.svn.core.io.SVNRepositoryFactory;
+import org.tmatesoft.svn.core.wc.ISVNCommitParameters;
 import org.tmatesoft.svn.core.wc.ISVNConflictHandler;
+import org.tmatesoft.svn.core.wc.ISVNDiffStatusHandler;
 import org.tmatesoft.svn.core.wc.ISVNOptions;
+import org.tmatesoft.svn.core.wc.ISVNStatusHandler;
 import org.tmatesoft.svn.core.wc.SVNClientManager;
 import org.tmatesoft.svn.core.wc.SVNConflictChoice;
 import org.tmatesoft.svn.core.wc.SVNConflictDescription;
+import org.tmatesoft.svn.core.wc.SVNConflictReason;
 import org.tmatesoft.svn.core.wc.SVNConflictResult;
 import org.tmatesoft.svn.core.wc.SVNCopyClient;
 import org.tmatesoft.svn.core.wc.SVNCopySource;
 import org.tmatesoft.svn.core.wc.SVNDiffClient;
+import org.tmatesoft.svn.core.wc.SVNDiffStatus;
 import org.tmatesoft.svn.core.wc.SVNRevision;
 import org.tmatesoft.svn.core.wc.SVNRevisionRange;
+import org.tmatesoft.svn.core.wc.SVNStatus;
 import org.tmatesoft.svn.core.wc.SVNStatusType;
 import org.tmatesoft.svn.core.wc.SVNUpdateClient;
 import org.tmatesoft.svn.core.wc.SVNWCClient;
 import org.tmatesoft.svn.core.wc.SVNWCUtil;
-import org.tmatesoft.svn.core.wc2.ISvnObjectReceiver;
 import org.tmatesoft.svn.core.wc2.SvnDiff;
-import org.tmatesoft.svn.core.wc2.SvnDiffStatus;
 import org.tmatesoft.svn.core.wc2.SvnDiffSummarize;
 import org.tmatesoft.svn.core.wc2.SvnOperationFactory;
 import org.tmatesoft.svn.core.wc2.SvnTarget;
@@ -99,8 +105,10 @@ public class SVNVCS implements IVCS {
 			throw new EVCSException(e);
 		}
 		
-		userPassAuth = SVNPasswordAuthentication.newInstance(user, 
-				(password == null ? null : password.toCharArray()), true, trunkSVNUrl, false);
+//		userPassAuth = SVNPasswordAuthentication.newInstance(user, 
+//				(password == null ? null : password.toCharArray()), true, trunkSVNUrl, false);
+		userPassAuth = new SVNPasswordAuthentication(user, 
+				(password == null ? null : password), true, trunkSVNUrl, false);
 		authManager = new BasicAuthenticationManager(new SVNAuthentication[] {userPassAuth});
 		repository.setAuthenticationManager(authManager);
 		
@@ -113,7 +121,7 @@ public class SVNVCS implements IVCS {
 	}
 	
 	private SVNURL getBranchUrl(String branchPath) throws SVNException {
-		return SVNURL.parseURIEncoded(repoUrl + (branchPath == null ? MASTER_PATH : BRANCHES_PATH + branchPath));
+		return SVNURL.parseURIEncoded(repoUrl + getBranchPath(branchPath));
 	}
 	
 	private String getBranchPath(String branchPath) {
@@ -140,7 +148,6 @@ public class SVNVCS implements IVCS {
 				SVNCopySource copySource = new SVNCopySource(SVNRevision.WORKING, SVNRevision.WORKING,
 						wc.getFolder());
 				copySource.setCopyContents(false); 
-				
 				copyClient.doCopy(new SVNCopySource[] { copySource }, toUrl, 
 						false, // isMove
 						true, // make parents
@@ -253,13 +260,16 @@ public class SVNVCS implements IVCS {
 
 	@Override
 	public void setCredentials(String user, String password) {
-		userPassAuth = SVNPasswordAuthentication.newInstance(user, password.toCharArray(), true, trunkSVNUrl, false);
+//		userPassAuth = SVNPasswordAuthentication.newInstance(user, password.toCharArray(), true, trunkSVNUrl, false);
+//		authManager.setAuthentications(new SVNAuthentication[] {userPassAuth});
+		userPassAuth = new SVNPasswordAuthentication(user, password, true, trunkSVNUrl, false);
 		authManager.setAuthentications(new SVNAuthentication[] {userPassAuth});
+		
 	}
 
 	@Override
 	public void setProxy(String host, int port, String proxyUser, String proxyPassword) {
-		authManager.setProxy(host, port, proxyUser, proxyPassword.toCharArray());
+		authManager.setProxy(host, port, proxyUser, proxyPassword);
 	}
 
 
@@ -267,8 +277,8 @@ public class SVNVCS implements IVCS {
 	public String getFileContent(String branchName, String filePath, String encoding) {
 		ByteArrayOutputStream baos = new ByteArrayOutputStream( );
 		try {
-			repository.getFile(new File((branchName == null ? MASTER_PATH : BRANCHES_PATH + branchName),
-					filePath).getPath().replace("\\", "/"), -1, new SVNProperties(), baos);
+			repository.getFile(new File(getBranchPath(branchName), filePath)
+					.getPath().replace("\\", "/"), -1, new SVNProperties(), baos);
 			return baos.toString(encoding);
 		} catch (SVNException e) {
 			if (e.getErrorMessage().getErrorCode().getCode() == SVN_FILE_NOT_FOUND_ERROR_CODE) {
@@ -380,34 +390,247 @@ public class SVNVCS implements IVCS {
 		final SvnDiffSummarize summarizeDiff = svnOperationFactory.createDiffSummarize();
 		final List<VCSDiffEntry> res = new ArrayList<>();
 		
-		summarizeDiff.setSources(
-				SvnTarget.fromURL(getBranchUrl(dstBranchName), SVNRevision.HEAD),
-				SvnTarget.fromURL(getBranchUrl(srcBranchName), SVNRevision.HEAD));
+		checkout(getBranchUrl(dstBranchName), wc.getFolder());
 		
-		summarizeDiff.setReceiver(new ISvnObjectReceiver<SvnDiffStatus>() {
-            public void receive(SvnTarget target, SvnDiffStatus diffStatus) throws SVNException {
-            	if (diffStatus.getPath().length() == 0) {
-            		return;
-            	}
-            	VCSDiffEntry entry = new VCSDiffEntry(diffStatus.getPath(),
-                		SVNChangeTypeToVCSChangeType(diffStatus.getModificationType()));
-                res.add(entry);
-            }
+		//SvnLogMergeInfo info = svnOperationFactory.createLogMergeInfo();
+		
+//		info.setFindMerged(true);
+//		info.setDepth(SVNDepth.INFINITY);
+//		info.addRevisionRange(SvnRevisionRange.create(SVNRevision.create(1), 
+//				SVNRevision.create(repository.info(getBranchPath(srcBranchName), 13L).getRevision())));
+//		info.setSource(SvnTarget.fromURL(getBranchUrl(dstBranchName)));
+//		info.setSingleTarget(SvnTarget.fromFile(wc.getFolder()));
+//		SVNLogEntry ent;
+//		final Collection<SVNLogEntry> mergedRev	s = new ArrayList<>();
+//		clientManager.getDiffClient().doGetLogMergedMergeInfo(getBranchUrl(srcBranchName), 
+//				SVNRevision.HEAD, repository.getRepositoryRoot(true), SVNRevision.HEAD, true, null, new ISVNLogEntryHandler() {
+//			
+//			@Override
+//			public void handleLogEntry(SVNLogEntry logEntry) throws SVNException {
+//				mergedRevs.add(logEntry);
+//				
+//			}
+//		});
+//		
+//		
+//		
+//		info.setReceiver(new ISvnObjectReceiver<SVNLogEntry>() {
+//			@Override
+//			public void receive(SvnTarget target, SVNLogEntry object) throws SVNException {
+//				if (object.hasChildren()) {
+//					mergedRevs.add(object);
+//				}
+//			}
+//		});
+//		
+//		
+//		info.run();
+		
+		
+		
+		
+//		repository.log(new String[] { getBranchPath(srcBranchName) }, 
+//				getBranchFirstCommit(srcBranchName).getRevision(), 0, 
+//					true, true, 0, new ISVNLogEntryHandler() {
+//			@Override
+//			public void handleLogEntry(SVNLogEntry logEntry) throws SVNException {
+//				//res.add(logEntry.getRevision());
+//			}
+//		});
+		
+		// Summarized Diff не подходит, т.к. он будет учитывать невмерженные комиты транка.
+		// Summarized Diff по коммитам ветки подошел бы, если бы был способ исключить коммиты, вмерженные из транка
+		// doStatus после merge не подходит, т.к. он не может определить статус для file1.txt, который treeConflict
+		// doStatus считает file1.txt unversioned, file3.txt видит как normal, а не added, folder\file3.txt - unknown
+		// doStatus видит file3.txt normal, a folder/ - added
+		// doDiffStatus - если между результатом мерджа в транк и транком, то правильно, но в итоге NPE
+		// doDiffStatus - если между ветками, то будут видны изменения транка, которые не убрать
+		// doDiffStatus - если между началом ветки и концом, то ошибка "file not found: revision 15, path '/new-branch'"
+		
+		
+		SVNDiffClient diffClient = clientManager.getDiffClient();
+		
 
-			private VCSChangeType SVNChangeTypeToVCSChangeType(SVNStatusType modificationType) {
-				if (SVNStatusType.STATUS_ADDED.equals(modificationType)) {
-					return VCSChangeType.ADD;
-				} else if (SVNStatusType.STATUS_DELETED.equals(modificationType)) {
-					return VCSChangeType.DELETE;
-				} else if (SVNStatusType.STATUS_MODIFIED.equals(modificationType)) {
-					return VCSChangeType.MODIFY;
-				} else {
-					return VCSChangeType.UNKNOWN;
+		DefaultSVNOptions options = (DefaultSVNOptions) diffClient.getOptions();
+		options.setConflictHandler(new ISVNConflictHandler() {
+			@Override
+			public SVNConflictResult handleConflict(SVNConflictDescription conflictDescription)
+					throws SVNException {
+				if (conflictDescription.getConflictReason() == SVNConflictReason.MISSING ) {
+					File missingFile = conflictDescription.getMergeFiles().getLocalFile();
+					
+					missingFile.getParentFile().mkdirs();
+					try {
+						missingFile.createNewFile();
+						String content = getFileContent(srcBranchName, conflictDescription.getMergeFiles().getLocalPath());
+						FileUtils.writeStringToFile(missingFile, content);
+						return new SVNConflictResult(SVNConflictChoice.MERGED, missingFile);
+					} catch (IOException e) {
+						throw new RuntimeException(e);
+					}
+					
 				}
+				return new SVNConflictResult(
+						conflictDescription.isTreeConflict() ? SVNConflictChoice.POSTPONE : SVNConflictChoice.THEIRS_FULL,
+						conflictDescription.getMergeFiles().getLocalFile());
 			}
-        });
+		});
+		
+		
+		
+		SVNRevisionRange range = new SVNRevisionRange(SVNRevision.create(1), SVNRevision.HEAD);
+		diffClient.doMergeReIntegrate(getBranchUrl(srcBranchName), SVNRevision.HEAD, wc.getFolder(), false);
+		try {
+	//		(getBranchUrl(srcBranchName),
+	//				SVNRevision.HEAD, Collections.singleton(range),
+	//				wc.getFolder(), SVNDepth.UNKNOWN, true, false, false, false);
+			
+			
+			
+	//		final List<SVNLogEntry> entries = new ArrayList<>();
+	//		repository.log(new String[] { "branches/" + srcBranchName }, -1 /* start from head descending */, 
+	//				0, true, true, -1, new ISVNLogEntryHandler() {
+	//			@Override
+	//			public void handleLogEntry(SVNLogEntry logEntry) throws SVNException {
+	//				entries.add(logEntry);
+	//			}
+	//		});
+	//		final SVNLogEntry branchFirstCommit = entries.get(entries.size() - 1);
+			final String wcFolderPath = wc.getFolder().getPath();
+//			
+			// работает правильно, но NPE
+			// http://stackoverflow.com/questions/11851584/how-to-list-locally-modified-unversioned-files-using-svnkit
+			//diffClient.doDiffStatus(wc.getFolder(), SVNRevision.WORKING, getBranchUrl(dstBranchName), SVNRevision.HEAD, 
+//			diffClient.doDiffStatus(getBranchUrl(srcBranchName), SVNRevision.HEAD, 
+//					getBranchUrl(srcBranchName), SVNRevision.create(getBranchFirstCommit(srcBranchName).getRevision()),
+			
+//			diffClient.doDiffStatus(wc.getFolder(), SVNRevision.WORKING, getBranchUrl(dstBranchName), SVNRevision.HEAD, 
+//					SVNDepth.FILES, true /* useAncestry */, new ISVNDiffStatusHandler() {
+//						
+//						@Override
+//						public void handleDiffStatus(SVNDiffStatus diffStatus) throws SVNException {
+//							
+//							//if (diffStatus.getURL().getPath().contains(getBranchUrl(null).getPath())) {
+//							//	return;
+//							//}
+//							VCSDiffEntry entry = new VCSDiffEntry(diffStatus.getPath(),
+//			                		SVNChangeTypeToVCSChangeType(diffStatus.getModificationType()));
+//							res.add(entry);
+//							
+//						}
+//						
+//						private VCSChangeType SVNChangeTypeToVCSChangeType(SVNStatusType modificationType) {
+//							if (SVNStatusType.STATUS_ADDED.equals(modificationType)) {
+//								return VCSChangeType.ADD;
+//							} else if (SVNStatusType.STATUS_DELETED.equals(modificationType)) {
+//								return VCSChangeType.DELETE;
+//							} else if (SVNStatusType.STATUS_MODIFIED.equals(modificationType)) {
+//								return VCSChangeType.MODIFY;
+//							} else {
+//								return VCSChangeType.UNKNOWN;
+//							}
+//						}
+//					});
+				
+//				@Override
+//				public void handleStatus(SVNStatus status) throws SVNException {
+//					if (status.getKind() == SVNNodeKind.DIR) {
+//	            		return;
+//	            	}
+//	            	VCSDiffEntry entry = new VCSDiffEntry(status.getFile().getPath().replace(wcFolderPath + "\\", ""),
+//	            			status.
+//	                		SVNChangeTypeToVCSChangeType(status.getCombinedRemoteNodeAndContentsStatus()));
+//	                res.add(entry);
+//					
+//				}
+//				
+//				private VCSChangeType SVNChangeTypeToVCSChangeType(SVNStatusType modificationType) {
+//					if (SVNStatusType.STATUS_ADDED.equals(modificationType)) {
+//						return VCSChangeType.ADD;
+//					} else if (SVNStatusType.STATUS_DELETED.equals(modificationType)) {
+//						return VCSChangeType.DELETE;
+//					} else if (SVNStatusType.STATUS_MODIFIED.equals(modificationType)) {
+//						return VCSChangeType.MODIFY;
+//					} else {
+//						return VCSChangeType.UNKNOWN;
+//					}
+//				}
+//			});
+			final List<String> folders = new ArrayList<>();
+			
+			
+			
+			clientManager.getStatusClient().doStatus(wc.getFolder(), SVNRevision.BASE, SVNDepth.INFINITY, 
+					false /* remote */, false /* reportAll, including normal state */, false /* includeIgnored */, true /* obsolete */, 
+					
+//					wc.getFolder(), SVNRevision.WORKING, SVNDepth.INFINITY, true, false /* do not include unchanged files */, 
+//					false, false, 
+					new ISVNStatusHandler() {
+						@Override
+						public void handleStatus(SVNStatus status) throws SVNException {
+							if (status.getKind() == SVNNodeKind.DIR) {
+								folders.add(status.getFile().getPath().replace(wcFolderPath + "\\", ""));
+			            		return;
+			            	}
+			            	VCSDiffEntry entry = new VCSDiffEntry(status.getFile().getPath().replace(wcFolderPath + "\\", ""),
+			                		SVNChangeTypeToVCSChangeType(status.getCombinedNodeAndContentsStatus()));
+			                res.add(entry);
+							
+						}
+						
+						private VCSChangeType SVNChangeTypeToVCSChangeType(SVNStatusType modificationType) {
+							if (SVNStatusType.STATUS_ADDED.equals(modificationType)) {
+								return VCSChangeType.ADD;
+							} else if (SVNStatusType.STATUS_DELETED.equals(modificationType)) {
+								return VCSChangeType.DELETE;
+							} else if (SVNStatusType.STATUS_MODIFIED.equals(modificationType)) {
+								return VCSChangeType.MODIFY;
+							} else {
+								return VCSChangeType.UNKNOWN;
+							}
+						}
 
-		return res;
+						
+					}, null);
+			
+			
+//			diffClient.doDiffStatus(wc.getFolder(), SVNRevision.BASE, wc.getFolder(), SVNRevision.WORKING, 
+//					SVNDepth.INFINITY, false, new ISVNDiffStatusHandler() {
+//				
+//				@Override
+//				public void handleDiffStatus(SVNDiffStatus diffStatus) throws SVNException {
+//	            	if (diffStatus.getPath().length() == 0 ||
+//	            			diffStatus.getKind() == SVNNodeKind.DIR) {
+//	            		return;
+//	            	}
+//	            	VCSDiffEntry entry = new VCSDiffEntry(diffStatus.getPath(),
+//	                		SVNChangeTypeToVCSChangeType(diffStatus.getModificationType()));
+//	                res.add(entry);
+//				}
+//				
+//				private VCSChangeType SVNChangeTypeToVCSChangeType(SVNStatusType modificationType) {
+//					if (SVNStatusType.STATUS_ADDED.equals(modificationType)) {
+//						return VCSChangeType.ADD;
+//					} else if (SVNStatusType.STATUS_DELETED.equals(modificationType)) {
+//						return VCSChangeType.DELETE;
+//					} else if (SVNStatusType.STATUS_MODIFIED.equals(modificationType)) {
+//						return VCSChangeType.MODIFY;
+//					} else {
+//						return VCSChangeType.UNKNOWN;
+//					}
+//				}
+//			});
+	
+			return res; 
+			
+		} finally {
+			SVNWCClient wcClient = getRevertClient(options);
+			try {
+				wcClient.doRevert(new File[] {wc.getFolder()}, SVNDepth.INFINITY, null);
+			} catch (Exception e) {
+				wc.setCorrupted(true);
+			}
+		}
 	}
 
 	@Override
@@ -474,7 +697,7 @@ public class SVNVCS implements IVCS {
 	public List<String> getCommitMessages(String branchName, Integer limit) {
 		final List<String> res = new ArrayList<>();
 		try {
-			repository.log(new String[] { branchName == null ? MASTER_PATH : BRANCHES_PATH + branchName }, 
+			repository.log(new String[] { getBranchPath(branchName) }, 
 					-1 /* start from head descending */, 
 					0, true, true, limit, new ISVNLogEntryHandler() {
 				@Override
