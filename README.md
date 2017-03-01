@@ -63,6 +63,7 @@ Features:
 
 # Functional testing
 - To execute tests just run SVNVCSTest class as JUnit test. Tests from VCSAbstractTest class will be executed. See  [pk-vcs-test](https://github.com/ProjectKaiser/pk-vcs-test) for details
+- Or run `gradle test`
 
 # Limitations
 - According to IVCS description `IVCS.getBranches()` should return list of user-created branches. But a branch and a dir are the same for SVN. So `SVNVCS.getBranches()` returns set of first level folders of "Branches/" branch and "Trunk" branch. I.e.:

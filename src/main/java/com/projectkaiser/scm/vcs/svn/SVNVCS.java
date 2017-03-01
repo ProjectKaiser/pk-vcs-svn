@@ -406,6 +406,7 @@ public class SVNVCS implements IVCS {
 				}
 			}
         });
+		summarizeDiff.run();
 
 		return res;
 	}
