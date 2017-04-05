@@ -14,6 +14,7 @@ import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
 import org.tmatesoft.svn.core.ISVNLogEntryHandler;
+import org.tmatesoft.svn.core.SVNCommitInfo;
 import org.tmatesoft.svn.core.SVNDepth;
 import org.tmatesoft.svn.core.SVNDirEntry;
 import org.tmatesoft.svn.core.SVNException;
@@ -51,6 +52,7 @@ import org.tmatesoft.svn.core.wc2.SvnTarget;
 
 import com.projectkaiser.scm.vcs.api.IVCS;
 import com.projectkaiser.scm.vcs.api.VCSChangeType;
+import com.projectkaiser.scm.vcs.api.VCSCommit;
 import com.projectkaiser.scm.vcs.api.VCSDiffEntry;
 import com.projectkaiser.scm.vcs.api.VCSMergeResult;
 import com.projectkaiser.scm.vcs.api.exceptions.EVCSBranchExists;
@@ -113,11 +115,11 @@ public class SVNVCS implements IVCS {
 	}
 	
 	private SVNURL getBranchUrl(String branchPath) throws SVNException {
-		return SVNURL.parseURIEncoded(repoUrl + (branchPath == null ? MASTER_PATH : BRANCHES_PATH + branchPath));
+		return SVNURL.parseURIEncoded(repoUrl + getBranchName(branchPath));
 	}
 	
 	private String getBranchPath(String branchPath) {
-		return branchPath == null ? MASTER_PATH : BRANCHES_PATH + branchPath;
+		return getBranchName(branchPath);
 	}
 	
 	@Override
@@ -267,8 +269,8 @@ public class SVNVCS implements IVCS {
 	public String getFileContent(String branchName, String filePath, String encoding) {
 		ByteArrayOutputStream baos = new ByteArrayOutputStream( );
 		try {
-			repository.getFile(new File((branchName == null ? MASTER_PATH : BRANCHES_PATH + branchName),
-					filePath).getPath().replace("\\", "/"), -1, new SVNProperties(), baos);
+			repository.getFile(new File(getBranchName(branchName), filePath).getPath().replace("\\", "/"), 
+					-1, new SVNProperties(), baos);
 			return baos.toString(encoding);
 		} catch (SVNException e) {
 			if (e.getErrorMessage().getErrorCode().getCode() == SVN_FILE_NOT_FOUND_ERROR_CODE) {
@@ -281,13 +283,17 @@ public class SVNVCS implements IVCS {
 		
 	}
 
+	private String getBranchName(String branchName) {
+		return branchName == null ? MASTER_PATH : BRANCHES_PATH + branchName;
+	}
+
 	@Override
 	public String getFileContent(String branchName, String filePath) {
 		return getFileContent(branchName, filePath, StandardCharsets.UTF_8.name());
 	}
 
 	@Override
-	public void setFileContent(String branchName, String filePath, String content, String commitMessage) {
+	public String setFileContent(String branchName, String filePath, String content, String commitMessage) {
 		try {
 			try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
 					checkout(getBranchUrl(branchName), wc.getFolder());
@@ -310,10 +316,11 @@ public class SVNVCS implements IVCS {
 										false, false, SVNDepth.EMPTY, false, true);
 					}
 					
-					clientManager
+					SVNCommitInfo res = clientManager
 							.getCommitClient()
 							.doCommit(new File[] { wc.getFolder() }, false, commitMessage,
 									new SVNProperties(), null, false, false, SVNDepth.INFINITY);
+					return Long.toString(res.getNewRevision());
 			}
 		} catch (SVNException e) {
 			throw new EVCSException(e);
@@ -475,7 +482,7 @@ public class SVNVCS implements IVCS {
 	public List<String> getCommitMessages(String branchName, Integer limit) {
 		final List<String> res = new ArrayList<>();
 		try {
-			repository.log(new String[] { branchName == null ? MASTER_PATH : BRANCHES_PATH + branchName }, 
+			repository.log(new String[] { getBranchName(branchName) }, 
 					-1 /* start from head descending */, 
 					0, true, true, limit, new ISVNLogEntryHandler() {
 				@Override
@@ -497,12 +504,13 @@ public class SVNVCS implements IVCS {
 	}
 
 	@Override
-	public void removeFile(String branchName, String filePath, String commitMessage) {
+	public String removeFile(String branchName, String filePath, String commitMessage) {
 		try {
 			try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
-				clientManager
+				SVNCommitInfo res = clientManager
 						.getCommitClient()
 						.doDelete(new SVNURL[] {getBranchUrl(branchName).appendPath(filePath, true)}, commitMessage);
+				return Long.toString(res.getNewRevision());
 			}
 		} catch (SVNException e) {
 			throw new EVCSException(e);
@@ -510,5 +518,31 @@ public class SVNVCS implements IVCS {
 			throw new RuntimeException(e);
 		}
 		
+	}
+
+	@Override
+	public List<VCSCommit> getCommitsRange(String branchName, String afterCommitId, String untilCommitId) {
+		final List<VCSCommit> res = new ArrayList<>();
+		try {
+			String bn = getBranchName(branchName);
+			Long sinceCommit = afterCommitId == null ? 
+					getBranchFirstCommit(bn).getRevision() :
+					Long.parseLong(afterCommitId);
+			Long untilCommit = untilCommitId == null ? -1L : Long.parseLong(untilCommitId);
+			repository.log(new String[] { getBranchName(branchName) }, 
+					sinceCommit, untilCommit, true, true, 0 /* limit */, new ISVNLogEntryHandler() {
+				@Override
+				public void handleLogEntry(SVNLogEntry logEntry) throws SVNException {
+					VCSCommit commit = new VCSCommit(Long.toString(logEntry.getRevision()), logEntry.getMessage(),
+							logEntry.getAuthor());
+					res.add(commit);
+				}
+			});
+			return res;
+		} catch (SVNException e) {
+			throw new EVCSException(e);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
 	}
 }
