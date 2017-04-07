@@ -18,12 +18,12 @@ repositories {
 defaultTasks 'build';
 
 dependencies {
-	compile 'com.github.ProjectKaiser:pk-vcs-api:1.1'
+	compile 'com.github.ProjectKaiser:pk-vcs-api:1.2'
     compile 'org.tmatesoft.svnkit:svnkit:1.8.14'
     compile 'commons-logging:commons-logging:1.2'
     
     testCompile 'junit:junit:4.12'
-    testCompile 'com.github.ProjectKaiser:pk-vcs-test:1.1'
+    testCompile 'com.github.ProjectKaiser:pk-vcs-test:1.2'
     testCompile 'org.mockito:mockito-core:2.0.62-beta'
 }
 
