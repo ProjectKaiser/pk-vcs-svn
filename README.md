@@ -34,8 +34,8 @@ Features:
 	}
 	
 	dependencies {
-		compile 'com.github.ProjectKaiser:pk-vcs-svn:master-SNAPSHOT'
-		compile 'com.github.ProjectKaiser:pk-vcs-api:master-SNAPSHOT'
+		// versioning: master-SNAPSHOT (lastest build, unstable), + (lastest release, stable) or certain version (e.g. 1.0)
+		compile 'com.github.ProjectKaiser:pk-vcs-svn:+'
 	}
 	```
 - Create Workspace Home instance providing path to any folder as Workspace Home folder path. This folder will contain repositories folders (if different vcs or repositories are used)
