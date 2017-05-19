@@ -1,4 +1,4 @@
-package com.projectkaiser.scm.vcs.svn;
+package org.scm4j.vcs.svn;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -50,16 +50,16 @@ import org.tmatesoft.svn.core.wc2.SvnDiffSummarize;
 import org.tmatesoft.svn.core.wc2.SvnOperationFactory;
 import org.tmatesoft.svn.core.wc2.SvnTarget;
 
-import com.projectkaiser.scm.vcs.api.IVCS;
-import com.projectkaiser.scm.vcs.api.VCSChangeType;
-import com.projectkaiser.scm.vcs.api.VCSCommit;
-import com.projectkaiser.scm.vcs.api.VCSDiffEntry;
-import com.projectkaiser.scm.vcs.api.VCSMergeResult;
-import com.projectkaiser.scm.vcs.api.exceptions.EVCSBranchExists;
-import com.projectkaiser.scm.vcs.api.exceptions.EVCSException;
-import com.projectkaiser.scm.vcs.api.exceptions.EVCSFileNotFound;
-import com.projectkaiser.scm.vcs.api.workingcopy.IVCSLockedWorkingCopy;
-import com.projectkaiser.scm.vcs.api.workingcopy.IVCSRepositoryWorkspace;
+import org.scm4j.vcs.api.IVCS;
+import org.scm4j.vcs.api.VCSChangeType;
+import org.scm4j.vcs.api.VCSCommit;
+import org.scm4j.vcs.api.VCSDiffEntry;
+import org.scm4j.vcs.api.VCSMergeResult;
+import org.scm4j.vcs.api.exceptions.EVCSBranchExists;
+import org.scm4j.vcs.api.exceptions.EVCSException;
+import org.scm4j.vcs.api.exceptions.EVCSFileNotFound;
+import org.scm4j.vcs.api.workingcopy.IVCSLockedWorkingCopy;
+import org.scm4j.vcs.api.workingcopy.IVCSRepositoryWorkspace;
 
 public class SVNVCS implements IVCS {
 	

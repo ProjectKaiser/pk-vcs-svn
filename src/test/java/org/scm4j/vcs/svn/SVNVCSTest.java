@@ -1,4 +1,4 @@
-package com.projectkaiser.scm.vcs.svn;
+package org.scm4j.vcs.svn;
 
 import java.io.File;
 import java.io.IOException;
@@ -6,6 +6,7 @@ import java.util.Collection;
 
 import org.junit.After;
 import org.mockito.Mockito;
+import org.scm4j.vcs.svn.SVNVCS;
 import org.tmatesoft.svn.core.SVNDepth;
 import org.tmatesoft.svn.core.SVNException;
 import org.tmatesoft.svn.core.SVNURL;
@@ -14,10 +15,10 @@ import org.tmatesoft.svn.core.io.SVNRepository;
 import org.tmatesoft.svn.core.io.SVNRepositoryFactory;
 import org.tmatesoft.svn.core.wc.SVNWCClient;
 
-import com.projectkaiser.scm.vcs.api.IVCS;
-import com.projectkaiser.scm.vcs.api.abstracttest.VCSAbstractTest;
-import com.projectkaiser.scm.vcs.api.exceptions.EVCSException;
-import com.projectkaiser.scm.vcs.api.workingcopy.IVCSRepositoryWorkspace;
+import org.scm4j.vcs.api.IVCS;
+import org.scm4j.vcs.api.abstracttest.VCSAbstractTest;
+import org.scm4j.vcs.api.exceptions.EVCSException;
+import org.scm4j.vcs.api.workingcopy.IVCSRepositoryWorkspace;
 
 public class SVNVCSTest extends VCSAbstractTest {
 
