@@ -34,7 +34,7 @@ Features:
 	
 	dependencies {
 		// versioning: master-SNAPSHOT (lastest build, unstable), + (lastest release, stable) or certain version (e.g. 1.1)
-		compile 'com.github.ProjectKaiser:scm4j-vcs-svn:master-SNAPSHOT'
+		compile 'com.github.ProjectKaiser:scm4j-vcs-svn:+'
 	}
 	```
 	Or download release jars from https://github.com/ProjectKaiser/scm4j-vcs-svn/releases
