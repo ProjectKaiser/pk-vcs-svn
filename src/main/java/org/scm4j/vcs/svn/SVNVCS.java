@@ -1,4 +1,4 @@
-package com.projectkaiser.scm.vcs.svn;
+package org.scm4j.vcs.svn;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -50,16 +50,17 @@ import org.tmatesoft.svn.core.wc2.SvnDiffSummarize;
 import org.tmatesoft.svn.core.wc2.SvnOperationFactory;
 import org.tmatesoft.svn.core.wc2.SvnTarget;
 
-import com.projectkaiser.scm.vcs.api.IVCS;
-import com.projectkaiser.scm.vcs.api.VCSChangeType;
-import com.projectkaiser.scm.vcs.api.VCSCommit;
-import com.projectkaiser.scm.vcs.api.VCSDiffEntry;
-import com.projectkaiser.scm.vcs.api.VCSMergeResult;
-import com.projectkaiser.scm.vcs.api.exceptions.EVCSBranchExists;
-import com.projectkaiser.scm.vcs.api.exceptions.EVCSException;
-import com.projectkaiser.scm.vcs.api.exceptions.EVCSFileNotFound;
-import com.projectkaiser.scm.vcs.api.workingcopy.IVCSLockedWorkingCopy;
-import com.projectkaiser.scm.vcs.api.workingcopy.IVCSRepositoryWorkspace;
+import org.scm4j.vcs.api.IVCS;
+import org.scm4j.vcs.api.VCSChangeType;
+import org.scm4j.vcs.api.VCSCommit;
+import org.scm4j.vcs.api.VCSDiffEntry;
+import org.scm4j.vcs.api.VCSMergeResult;
+import org.scm4j.vcs.api.exceptions.EVCSBranchExists;
+import org.scm4j.vcs.api.exceptions.EVCSException;
+import org.scm4j.vcs.api.exceptions.EVCSFileNotFound;
+import org.scm4j.vcs.api.workingcopy.IVCSLockedWorkingCopy;
+import org.scm4j.vcs.api.workingcopy.IVCSRepositoryWorkspace;
+import org.scm4j.vcs.api.workingcopy.IVCSWorkspace;
 
 public class SVNVCS implements IVCS {
 	
@@ -72,7 +73,7 @@ public class SVNVCS implements IVCS {
 	private SVNClientManager clientManager;
 	private SVNURL trunkSVNUrl;
 	private SVNAuthentication userPassAuth;
-	private IVCSRepositoryWorkspace repo;
+	private final IVCSRepositoryWorkspace repo;
 	private String repoUrl;
 	
 	public static final String MASTER_PATH= "trunk/";
@@ -334,8 +335,8 @@ public class SVNVCS implements IVCS {
 		return repo.getRepoUrl();
 	}
 	
-	private void fillUnifiedDiffs(final String srcBranchName, final String dstBranchName, List<VCSDiffEntry> entries, 
-			IVCSLockedWorkingCopy wc) throws SVNException {
+	private void fillUnifiedDiffs(final String srcBranchName, final String dstBranchName, List<VCSDiffEntry> entries)
+			throws SVNException {
 		for (VCSDiffEntry entry : entries) {
 			ByteArrayOutputStream baos = new ByteArrayOutputStream();
 			
@@ -381,8 +382,8 @@ public class SVNVCS implements IVCS {
 	}
 	
 	
-	private List<VCSDiffEntry> getDiffEntries(final String srcBranchName, final String dstBranchName, 
-			final IVCSLockedWorkingCopy wc) throws SVNException {
+	private List<VCSDiffEntry> getDiffEntries(final String srcBranchName, final String dstBranchName)
+			throws SVNException {
 		final SvnOperationFactory svnOperationFactory = new SvnOperationFactory();
 		final SvnDiffSummarize summarizeDiff = svnOperationFactory.createDiffSummarize();
 		final List<VCSDiffEntry> res = new ArrayList<>();
@@ -423,8 +424,8 @@ public class SVNVCS implements IVCS {
 		try {
 			try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
 				checkout(getBranchUrl(dstBranchName), wc.getFolder());
-				List<VCSDiffEntry> entries = getDiffEntries(srcBranchName, dstBranchName, wc);
-				fillUnifiedDiffs(srcBranchName, dstBranchName, entries, wc);
+				List<VCSDiffEntry> entries = getDiffEntries(srcBranchName, dstBranchName);
+				fillUnifiedDiffs(srcBranchName, dstBranchName, entries);
 				return entries;
 			}
 		} catch (SVNException e) {
@@ -544,5 +545,10 @@ public class SVNVCS implements IVCS {
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
+	}
+
+	@Override
+	public IVCSWorkspace getWorkspace() {
+		return repo.getWorkspace();
 	}
 }

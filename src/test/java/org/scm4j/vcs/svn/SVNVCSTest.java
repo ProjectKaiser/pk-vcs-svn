@@ -1,4 +1,4 @@
-package com.projectkaiser.scm.vcs.svn;
+package org.scm4j.vcs.svn;
 
 import java.io.File;
 import java.io.IOException;
@@ -6,6 +6,7 @@ import java.util.Collection;
 
 import org.junit.After;
 import org.mockito.Mockito;
+import org.scm4j.vcs.svn.SVNVCS;
 import org.tmatesoft.svn.core.SVNDepth;
 import org.tmatesoft.svn.core.SVNException;
 import org.tmatesoft.svn.core.SVNURL;
@@ -14,25 +15,24 @@ import org.tmatesoft.svn.core.io.SVNRepository;
 import org.tmatesoft.svn.core.io.SVNRepositoryFactory;
 import org.tmatesoft.svn.core.wc.SVNWCClient;
 
-import com.projectkaiser.scm.vcs.api.IVCS;
-import com.projectkaiser.scm.vcs.api.abstracttest.VCSAbstractTest;
-import com.projectkaiser.scm.vcs.api.exceptions.EVCSException;
-import com.projectkaiser.scm.vcs.api.workingcopy.IVCSRepositoryWorkspace;
+import org.scm4j.vcs.api.IVCS;
+import org.scm4j.vcs.api.abstracttest.VCSAbstractTest;
+import org.scm4j.vcs.api.exceptions.EVCSException;
+import org.scm4j.vcs.api.workingcopy.IVCSRepositoryWorkspace;
 
 public class SVNVCSTest extends VCSAbstractTest {
 
 	private static final String TRUNK_CREATED_COMMIT_MESSAGE = "trunk/ created";
 	private static final String BRANCHES_CREATED_COMMIT_MESSAGE = "branches/ created";
 	private SVNVCS svn;
-	private SVNURL localRepoUrl;
 	private SVNRepository svnRepo;
 	private SVNWCClient mockedSVNRevertClient;
-	private RuntimeException testSvnRevertException = new RuntimeException("test exeption on svn revert");
+	private final RuntimeException testSvnRevertException = new RuntimeException("test exeption on svn revert");
 	
 	@Override
 	public void setUp() throws Exception {
 		super.setUp();
-		localRepoUrl = SVNRepositoryFactory.createLocalRepository(new File(repoUrl.replace("file://", "")), true, true);
+		SVNURL localRepoUrl = SVNRepositoryFactory.createLocalRepository(new File(repoUrl.replace("file://", "")), true, true);
 		
 		svnRepo = SVNRepositoryFactory.create(localRepoUrl);
 
