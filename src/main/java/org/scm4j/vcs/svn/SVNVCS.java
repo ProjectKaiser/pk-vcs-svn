@@ -73,7 +73,7 @@ public class SVNVCS implements IVCS {
 	private SVNClientManager clientManager;
 	private SVNURL trunkSVNUrl;
 	private SVNAuthentication userPassAuth;
-	private IVCSRepositoryWorkspace repo;
+	private final IVCSRepositoryWorkspace repo;
 	private String repoUrl;
 	
 	public static final String MASTER_PATH= "trunk/";
@@ -335,8 +335,8 @@ public class SVNVCS implements IVCS {
 		return repo.getRepoUrl();
 	}
 	
-	private void fillUnifiedDiffs(final String srcBranchName, final String dstBranchName, List<VCSDiffEntry> entries, 
-			IVCSLockedWorkingCopy wc) throws SVNException {
+	private void fillUnifiedDiffs(final String srcBranchName, final String dstBranchName, List<VCSDiffEntry> entries)
+			throws SVNException {
 		for (VCSDiffEntry entry : entries) {
 			ByteArrayOutputStream baos = new ByteArrayOutputStream();
 			
@@ -382,8 +382,8 @@ public class SVNVCS implements IVCS {
 	}
 	
 	
-	private List<VCSDiffEntry> getDiffEntries(final String srcBranchName, final String dstBranchName, 
-			final IVCSLockedWorkingCopy wc) throws SVNException {
+	private List<VCSDiffEntry> getDiffEntries(final String srcBranchName, final String dstBranchName)
+			throws SVNException {
 		final SvnOperationFactory svnOperationFactory = new SvnOperationFactory();
 		final SvnDiffSummarize summarizeDiff = svnOperationFactory.createDiffSummarize();
 		final List<VCSDiffEntry> res = new ArrayList<>();
@@ -424,8 +424,8 @@ public class SVNVCS implements IVCS {
 		try {
 			try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
 				checkout(getBranchUrl(dstBranchName), wc.getFolder());
-				List<VCSDiffEntry> entries = getDiffEntries(srcBranchName, dstBranchName, wc);
-				fillUnifiedDiffs(srcBranchName, dstBranchName, entries, wc);
+				List<VCSDiffEntry> entries = getDiffEntries(srcBranchName, dstBranchName);
+				fillUnifiedDiffs(srcBranchName, dstBranchName, entries);
 				return entries;
 			}
 		} catch (SVNException e) {

@@ -25,15 +25,14 @@ public class SVNVCSTest extends VCSAbstractTest {
 	private static final String TRUNK_CREATED_COMMIT_MESSAGE = "trunk/ created";
 	private static final String BRANCHES_CREATED_COMMIT_MESSAGE = "branches/ created";
 	private SVNVCS svn;
-	private SVNURL localRepoUrl;
 	private SVNRepository svnRepo;
 	private SVNWCClient mockedSVNRevertClient;
-	private RuntimeException testSvnRevertException = new RuntimeException("test exeption on svn revert");
+	private final RuntimeException testSvnRevertException = new RuntimeException("test exeption on svn revert");
 	
 	@Override
 	public void setUp() throws Exception {
 		super.setUp();
-		localRepoUrl = SVNRepositoryFactory.createLocalRepository(new File(repoUrl.replace("file://", "")), true, true);
+		SVNURL localRepoUrl = SVNRepositoryFactory.createLocalRepository(new File(repoUrl.replace("file://", "")), true, true);
 		
 		svnRepo = SVNRepositoryFactory.create(localRepoUrl);
 
