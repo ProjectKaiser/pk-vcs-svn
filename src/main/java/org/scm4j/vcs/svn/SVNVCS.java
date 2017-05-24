@@ -60,6 +60,7 @@ import org.scm4j.vcs.api.exceptions.EVCSException;
 import org.scm4j.vcs.api.exceptions.EVCSFileNotFound;
 import org.scm4j.vcs.api.workingcopy.IVCSLockedWorkingCopy;
 import org.scm4j.vcs.api.workingcopy.IVCSRepositoryWorkspace;
+import org.scm4j.vcs.api.workingcopy.IVCSWorkspace;
 
 public class SVNVCS implements IVCS {
 	
@@ -544,5 +545,10 @@ public class SVNVCS implements IVCS {
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
+	}
+
+	@Override
+	public IVCSWorkspace getWorkspace() {
+		return repo.getWorkspace();
 	}
 }
