@@ -1,24 +1,21 @@
 package org.scm4j.vcs.svn;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.Collection;
-
 import org.junit.After;
 import org.mockito.Mockito;
-import org.scm4j.vcs.svn.SVNVCS;
+import org.scm4j.vcs.api.IVCS;
+import org.scm4j.vcs.api.abstracttest.VCSAbstractTest;
+import org.scm4j.vcs.api.exceptions.EVCSException;
+import org.scm4j.vcs.api.workingcopy.IVCSRepositoryWorkspace;
 import org.tmatesoft.svn.core.SVNDepth;
 import org.tmatesoft.svn.core.SVNException;
 import org.tmatesoft.svn.core.SVNURL;
 import org.tmatesoft.svn.core.internal.wc.DefaultSVNOptions;
 import org.tmatesoft.svn.core.io.SVNRepository;
-import org.tmatesoft.svn.core.io.SVNRepositoryFactory;
 import org.tmatesoft.svn.core.wc.SVNWCClient;
 
-import org.scm4j.vcs.api.IVCS;
-import org.scm4j.vcs.api.abstracttest.VCSAbstractTest;
-import org.scm4j.vcs.api.exceptions.EVCSException;
-import org.scm4j.vcs.api.workingcopy.IVCSRepositoryWorkspace;
+import java.io.File;
+import java.io.IOException;
+import java.util.Collection;
 
 public class SVNVCSTest extends VCSAbstractTest {
 
@@ -32,20 +29,18 @@ public class SVNVCSTest extends VCSAbstractTest {
 	@Override
 	public void setUp() throws Exception {
 		super.setUp();
-		SVNURL localRepoUrl = SVNRepositoryFactory.createLocalRepository(new File(repoUrl.replace("file://", "")), true, true);
-		
-		svnRepo = SVNRepositoryFactory.create(localRepoUrl);
+		svnRepo = SVNVCSUtils.createRepository(new File(repoUrl.replace("file://", "")));
 
 		createFolder("/" + SVNVCS.MASTER_PATH, TRUNK_CREATED_COMMIT_MESSAGE);
 		createFolder("/" + SVNVCS.BRANCHES_PATH, BRANCHES_CREATED_COMMIT_MESSAGE);
 	}
-	
+
 	private void createFolder(String folderName, String commitMessage) {
 		try {
 			svn
 					.getClientManager()
 					.getCommitClient()
-					.doMkDir(new SVNURL[] {SVNURL.parseURIEncoded(svn.getRepoUrl() + folderName)}, 
+					.doMkDir(new SVNURL[] {SVNURL.parseURIEncoded(svn.getRepoUrl() + folderName)},
 							commitMessage);
 		} catch (SVNException e) {
 			throw new EVCSException(e);
