@@ -13,6 +13,18 @@ import java.util.List;
 import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
+import org.scm4j.vcs.api.IVCS;
+import org.scm4j.vcs.api.VCSChangeType;
+import org.scm4j.vcs.api.VCSCommit;
+import org.scm4j.vcs.api.VCSDiffEntry;
+import org.scm4j.vcs.api.VCSMergeResult;
+import org.scm4j.vcs.api.WalkDirection;
+import org.scm4j.vcs.api.exceptions.EVCSBranchExists;
+import org.scm4j.vcs.api.exceptions.EVCSException;
+import org.scm4j.vcs.api.exceptions.EVCSFileNotFound;
+import org.scm4j.vcs.api.workingcopy.IVCSLockedWorkingCopy;
+import org.scm4j.vcs.api.workingcopy.IVCSRepositoryWorkspace;
+import org.scm4j.vcs.api.workingcopy.IVCSWorkspace;
 import org.tmatesoft.svn.core.ISVNLogEntryHandler;
 import org.tmatesoft.svn.core.SVNCommitInfo;
 import org.tmatesoft.svn.core.SVNDepth;
@@ -49,18 +61,6 @@ import org.tmatesoft.svn.core.wc2.SvnDiffStatus;
 import org.tmatesoft.svn.core.wc2.SvnDiffSummarize;
 import org.tmatesoft.svn.core.wc2.SvnOperationFactory;
 import org.tmatesoft.svn.core.wc2.SvnTarget;
-
-import org.scm4j.vcs.api.IVCS;
-import org.scm4j.vcs.api.VCSChangeType;
-import org.scm4j.vcs.api.VCSCommit;
-import org.scm4j.vcs.api.VCSDiffEntry;
-import org.scm4j.vcs.api.VCSMergeResult;
-import org.scm4j.vcs.api.exceptions.EVCSBranchExists;
-import org.scm4j.vcs.api.exceptions.EVCSException;
-import org.scm4j.vcs.api.exceptions.EVCSFileNotFound;
-import org.scm4j.vcs.api.workingcopy.IVCSLockedWorkingCopy;
-import org.scm4j.vcs.api.workingcopy.IVCSRepositoryWorkspace;
-import org.scm4j.vcs.api.workingcopy.IVCSWorkspace;
 
 public class SVNVCS implements IVCS {
 	
@@ -117,10 +117,6 @@ public class SVNVCS implements IVCS {
 	
 	private SVNURL getBranchUrl(String branchPath) throws SVNException {
 		return SVNURL.parseURIEncoded(repoUrl + getBranchName(branchPath));
-	}
-	
-	private String getBranchPath(String branchPath) {
-		return getBranchName(branchPath);
 	}
 	
 	@Override
@@ -294,7 +290,7 @@ public class SVNVCS implements IVCS {
 	}
 
 	@Override
-	public String setFileContent(String branchName, String filePath, String content, String commitMessage) {
+	public VCSCommit setFileContent(String branchName, String filePath, String content, String commitMessage) {
 		try {
 			try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
 					checkout(getBranchUrl(branchName), wc.getFolder());
@@ -317,11 +313,12 @@ public class SVNVCS implements IVCS {
 										false, false, SVNDepth.EMPTY, false, true);
 					}
 					
-					SVNCommitInfo res = clientManager
+					SVNCommitInfo newCommit = clientManager
 							.getCommitClient()
 							.doCommit(new File[] { wc.getFolder() }, false, commitMessage,
 									new SVNProperties(), null, false, false, SVNDepth.INFINITY);
-					return Long.toString(res.getNewRevision());
+					return newCommit == SVNCommitInfo.NULL ? VCSCommit.EMPTY :
+						new VCSCommit(Long.toString(newCommit.getNewRevision()), commitMessage, newCommit.getAuthor());
 			}
 		} catch (SVNException e) {
 			throw new EVCSException(e);
@@ -344,14 +341,14 @@ public class SVNVCS implements IVCS {
 			final SvnDiff diff = svnOperationFactory.createDiff();
 			
 			if (entry.getChangeType() == VCSChangeType.ADD) {
-				SVNLogEntry firstCommit = getBranchFirstCommit(getBranchPath(dstBranchName));
+				SVNLogEntry firstCommit = getBranchFirstCommit(getBranchName(dstBranchName));
 				diff.setSource(SvnTarget.fromURL(getBranchUrl(srcBranchName).appendPath(entry.getFilePath(), true), SVNRevision.HEAD), 
 						SVNRevision.create(firstCommit.getRevision()), 
-						SVNRevision.create(repository.info(getBranchPath(dstBranchName), -1).getRevision()));
+						SVNRevision.create(repository.info(getBranchName(dstBranchName), -1).getRevision()));
 			} else if (entry.getChangeType() == VCSChangeType.DELETE) {
-				SVNLogEntry firstCommit = getBranchFirstCommit(getBranchPath(dstBranchName));
+				SVNLogEntry firstCommit = getBranchFirstCommit(getBranchName(dstBranchName));
 				diff.setSource(SvnTarget.fromURL(getBranchUrl(dstBranchName).appendPath(entry.getFilePath(), true), SVNRevision.HEAD), 
-						SVNRevision.create(repository.info(getBranchPath(dstBranchName), -1).getRevision()),
+						SVNRevision.create(repository.info(getBranchName(dstBranchName), -1).getRevision()),
 						SVNRevision.create(firstCommit.getRevision()));
 			} else {
 				diff.setSources(
@@ -520,6 +517,40 @@ public class SVNVCS implements IVCS {
 		}
 		
 	}
+	
+	@Override
+	public List<VCSCommit> getCommitsRange(String branchName, String startFromCommitId, WalkDirection direction, int limit) {
+		final List<VCSCommit> res = new ArrayList<>();
+		try {
+			String bn = getBranchName(branchName);
+			Long sinceCommit;
+			Long untilCommit;
+			if (direction == WalkDirection.ASC) {
+				sinceCommit = startFromCommitId == null ? getBranchFirstCommit(bn).getRevision() : 
+					Long.parseLong(startFromCommitId);
+				untilCommit = Long.parseLong(getHeadCommit(branchName).getId());
+			} else {
+				sinceCommit = startFromCommitId == null ? getBranchFirstCommit(bn).getRevision() : 
+					Long.parseLong(startFromCommitId);
+				untilCommit = getBranchFirstCommit(bn).getRevision();
+			}
+		
+			repository.log(new String[] { bn }, sinceCommit, untilCommit, true, true, limit, 
+					new ISVNLogEntryHandler() {
+				@Override
+				public void handleLogEntry(SVNLogEntry logEntry) throws SVNException {
+					VCSCommit commit = new VCSCommit(Long.toString(logEntry.getRevision()), logEntry.getMessage(),
+							logEntry.getAuthor());
+					res.add(commit);
+				}
+			});
+			return res;
+		} catch (SVNException e) {
+			throw new EVCSException(e);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
 
 	@Override
 	public List<VCSCommit> getCommitsRange(String branchName, String afterCommitId, String untilCommitId) {
@@ -530,8 +561,8 @@ public class SVNVCS implements IVCS {
 					getBranchFirstCommit(bn).getRevision() :
 					Long.parseLong(afterCommitId);
 			Long untilCommit = untilCommitId == null ? -1L : Long.parseLong(untilCommitId);
-			repository.log(new String[] { getBranchName(branchName) }, 
-					sinceCommit, untilCommit, true, true, 0 /* limit */, new ISVNLogEntryHandler() {
+			repository.log(new String[] { bn }, sinceCommit, untilCommit, true, true, 0 /* limit */, 
+					new ISVNLogEntryHandler() {
 				@Override
 				public void handleLogEntry(SVNLogEntry logEntry) throws SVNException {
 					VCSCommit commit = new VCSCommit(Long.toString(logEntry.getRevision()), logEntry.getMessage(),
@@ -550,5 +581,19 @@ public class SVNVCS implements IVCS {
 	@Override
 	public IVCSWorkspace getWorkspace() {
 		return repo.getWorkspace();
+	}
+
+	@Override
+	public VCSCommit getHeadCommit(String branchName) {
+		try {
+			SVNDirEntry entry = repository.info(getBranchName(branchName), -1);
+			return new VCSCommit(Long.toString(entry.getRevision()), entry.getCommitMessage(), 
+					entry.getAuthor());
+		} catch (SVNException e) {
+			throw new EVCSException(e);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+		
 	}
 }
