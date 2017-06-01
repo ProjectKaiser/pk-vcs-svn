@@ -528,7 +528,7 @@ public class SVNVCS implements IVCS {
 			if (direction == WalkDirection.ASC) {
 				sinceCommit = startFromCommitId == null ? getBranchFirstCommit(bn).getRevision() : 
 					Long.parseLong(startFromCommitId);
-				untilCommit = Long.parseLong(getHeadCommit(branchName).getId());
+				untilCommit = Long.parseLong(getHeadCommit(branchName).getRevision());
 			} else {
 				sinceCommit = startFromCommitId == null ? getBranchFirstCommit(bn).getRevision() : 
 					Long.parseLong(startFromCommitId);
