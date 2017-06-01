@@ -340,12 +340,12 @@ public class SVNVCS implements IVCS {
 			final SvnDiff diff = svnOperationFactory.createDiff();
 			
 			if (entry.getChangeType() == VCSChangeType.ADD) {
-				SVNLogEntry firstCommit = getBranchFirstCommit(getBranchName(dstBranchName));
+				SVNLogEntry firstCommit = getBranchFirstCommit(dstBranchName);
 				diff.setSource(SvnTarget.fromURL(getBranchUrl(srcBranchName).appendPath(entry.getFilePath(), true), SVNRevision.HEAD), 
 						SVNRevision.create(firstCommit.getRevision()), 
 						SVNRevision.create(repository.info(getBranchName(dstBranchName), -1).getRevision()));
 			} else if (entry.getChangeType() == VCSChangeType.DELETE) {
-				SVNLogEntry firstCommit = getBranchFirstCommit(getBranchName(dstBranchName));
+				SVNLogEntry firstCommit = getBranchFirstCommit(dstBranchName);
 				diff.setSource(SvnTarget.fromURL(getBranchUrl(dstBranchName).appendPath(entry.getFilePath(), true), SVNRevision.HEAD), 
 						SVNRevision.create(repository.info(getBranchName(dstBranchName), -1).getRevision()),
 						SVNRevision.create(firstCommit.getRevision()));
@@ -367,7 +367,7 @@ public class SVNVCS implements IVCS {
 
 	private SVNLogEntry getBranchFirstCommit(final String branchPath) throws SVNException {
 		final List<SVNLogEntry> logEntries = new ArrayList<>();
-		repository.log(new String[] { branchPath }, -1 /* start from head descending */, 
+		repository.log(new String[] { getBranchName(branchPath) }, -1 /* start from head descending */,
 				0, true, true, -1, new ISVNLogEntryHandler() {
 			@Override
 			public void handleLogEntry(SVNLogEntry logEntry) throws SVNException {
@@ -518,23 +518,22 @@ public class SVNVCS implements IVCS {
 	}
 	
 	@Override
-	public List<VCSCommit> getCommitsRange(String branchName, String startFromCommitId, WalkDirection direction, int limit) {
+	public List<VCSCommit> getCommitsRange(String branchName, String firstCommitId, WalkDirection direction, int limit) {
 		final List<VCSCommit> res = new ArrayList<>();
 		try {
-			String bn = getBranchName(branchName);
+
 			Long sinceCommit;
 			Long untilCommit;
 			if (direction == WalkDirection.ASC) {
-				sinceCommit = startFromCommitId == null ? getBranchFirstCommit(bn).getRevision() : 
-					Long.parseLong(startFromCommitId);
+				sinceCommit = firstCommitId == null ? getBranchFirstCommit(branchName).getRevision() :
+					Long.parseLong(firstCommitId);
 				untilCommit = Long.parseLong(getHeadCommit(branchName).getRevision());
 			} else {
-				sinceCommit = startFromCommitId == null ? getBranchFirstCommit(bn).getRevision() : 
-					Long.parseLong(startFromCommitId);
-				untilCommit = getBranchFirstCommit(bn).getRevision();
+				sinceCommit = firstCommitId == null ? Long.parseLong(getHeadCommit(branchName).getRevision()) :
+					Long.parseLong(firstCommitId);
+				untilCommit = getBranchFirstCommit(branchName).getRevision();
 			}
-		
-			repository.log(new String[] { bn }, sinceCommit, untilCommit, true, true, limit, 
+			repository.log(new String[] { getBranchName(branchName) }, sinceCommit, untilCommit, true, true, limit,
 					new ISVNLogEntryHandler() {
 				@Override
 				public void handleLogEntry(SVNLogEntry logEntry) throws SVNException {
@@ -552,15 +551,14 @@ public class SVNVCS implements IVCS {
 	}
 
 	@Override
-	public List<VCSCommit> getCommitsRange(String branchName, String afterCommitId, String untilCommitId) {
+	public List<VCSCommit> getCommitsRange(String branchName, String firstCommitId, String untilCommitId) {
 		final List<VCSCommit> res = new ArrayList<>();
 		try {
-			String bn = getBranchName(branchName);
-			Long sinceCommit = afterCommitId == null ? 
-					getBranchFirstCommit(bn).getRevision() :
-					Long.parseLong(afterCommitId);
+			Long sinceCommit = firstCommitId == null ?
+					getBranchFirstCommit(branchName).getRevision() :
+					Long.parseLong(firstCommitId);
 			Long untilCommit = untilCommitId == null ? -1L : Long.parseLong(untilCommitId);
-			repository.log(new String[] { bn }, sinceCommit, untilCommit, true, true, 0 /* limit */, 
+			repository.log(new String[] { getBranchName(branchName) }, sinceCommit, untilCommit, true, true, 0 /* limit */,
 					new ISVNLogEntryHandler() {
 				@Override
 				public void handleLogEntry(SVNLogEntry logEntry) throws SVNException {
@@ -593,10 +591,8 @@ public class SVNVCS implements IVCS {
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
-		
 	}
-	
-	
+
 	@Override
 	public String toString() {
 		return "SVNVCS [url=" + repo.getRepoUrl() + "]";
