@@ -63,7 +63,6 @@ import org.tmatesoft.svn.core.wc2.SvnOperationFactory;
 import org.tmatesoft.svn.core.wc2.SvnTarget;
 
 public class SVNVCS implements IVCS {
-	
 	private static final int SVN_PATH_IS_NOT_WORKING_COPY_ERROR_CODE = 155007;
 	private static final int SVN_ITEM_EXISTS_ERROR_CODE = 160020;
 	private static final int SVN_FILE_NOT_FOUND_ERROR_CODE = 160013;
@@ -595,5 +594,11 @@ public class SVNVCS implements IVCS {
 			throw new RuntimeException(e);
 		}
 		
+	}
+	
+	
+	@Override
+	public String toString() {
+		return "SVNVCS [url=" + repo.getRepoUrl() + "]";
 	}
 }
