@@ -312,12 +312,17 @@ public class SVNVCS implements IVCS {
 										false, false, SVNDepth.EMPTY, false, true);
 					}
 					
-					SVNCommitInfo newCommit = clientManager
-							.getCommitClient()
-							.doCommit(new File[] { wc.getFolder() }, false, commitMessage,
-									new SVNProperties(), null, false, false, SVNDepth.INFINITY);
-					return newCommit == SVNCommitInfo.NULL ? VCSCommit.EMPTY :
-						new VCSCommit(Long.toString(newCommit.getNewRevision()), commitMessage, newCommit.getAuthor());
+					try {
+						SVNCommitInfo newCommit = clientManager
+								.getCommitClient()
+								.doCommit(new File[] { wc.getFolder() }, false, commitMessage,
+										new SVNProperties(), null, false, false, SVNDepth.INFINITY);
+						return newCommit == SVNCommitInfo.NULL ? VCSCommit.EMPTY :
+							new VCSCommit(Long.toString(newCommit.getNewRevision()), commitMessage, newCommit.getAuthor());
+					} catch (SVNException e) {
+						wc.setCorrupted(true);
+						throw e;
+					}
 			}
 		} catch (SVNException e) {
 			throw new EVCSException(e);
