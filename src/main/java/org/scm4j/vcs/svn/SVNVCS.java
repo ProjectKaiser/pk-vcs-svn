@@ -597,4 +597,17 @@ public class SVNVCS implements IVCS {
 	public String toString() {
 		return "SVNVCS [url=" + repo.getRepoUrl() + "]";
 	}
+
+	@Override
+	public Boolean fileExists(String branchName, String filePath) {
+		try {
+			SVNNodeKind nodeKind = repository.checkPath(
+					new File(getBranchName(branchName), filePath).getPath().replace("\\", "/") ,  -1 );
+			return nodeKind == SVNNodeKind.FILE;
+		} catch (SVNException e) {
+			throw new EVCSException(e);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
 }
