@@ -175,25 +175,26 @@ public class SVNVCS implements IVCS {
 				checkout(getBranchUrl(dstBranchName), wc.getFolder());
 				
 				DefaultSVNOptions options = (DefaultSVNOptions) diffClient.getOptions();
-				final VCSMergeResult res = new VCSMergeResult();
+				final List<String> conflictingFiles = new ArrayList<>();
 				options.setConflictHandler(new ISVNConflictHandler() {
 					@Override
 					public SVNConflictResult handleConflict(SVNConflictDescription conflictDescription)
 							throws SVNException {
-						res.getConflictingFiles().add(conflictDescription.getMergeFiles().getLocalPath());
+						conflictingFiles.add(conflictDescription.getMergeFiles().getLocalPath());
 						return new SVNConflictResult(SVNConflictChoice.POSTPONE, 
 								conflictDescription.getMergeFiles().getResultFile()); 
 					}
 				});
 
+				
 				try {
 					SVNRevisionRange range = new SVNRevisionRange(SVNRevision.create(1), SVNRevision.HEAD);
 					diffClient.doMerge(getBranchUrl(srcBranchName),
 							SVNRevision.HEAD, Collections.singleton(range),
 							wc.getFolder(), SVNDepth.UNKNOWN, true, false, false, false);
 					
-					res.setSuccess(res.getConflictingFiles().isEmpty());
-					if (res.getSuccess()) {
+					Boolean success = conflictingFiles.isEmpty();
+					if (success) {
 						clientManager
 								.getCommitClient()
 								.doCommit(new File[] {wc.getFolder()}, false, commitMessage, 
@@ -207,12 +208,11 @@ public class SVNVCS implements IVCS {
 							wc.setCorrupted(true);
 						}
 					}
+					return new VCSMergeResult(success, conflictingFiles);
 				} catch (Exception e) {
 					wc.setCorrupted(true);
 					throw e;
 				}
-				
-				return res;
 			} 
 		} catch (SVNException e) {
 			throw new EVCSException(e);
