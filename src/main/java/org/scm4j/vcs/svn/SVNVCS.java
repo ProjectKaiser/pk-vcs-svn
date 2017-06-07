@@ -506,13 +506,13 @@ public class SVNVCS implements IVCS {
 	}
 
 	@Override
-	public String removeFile(String branchName, String filePath, String commitMessage) {
+	public VCSCommit removeFile(String branchName, String filePath, String commitMessage) {
 		try {
 			try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
 				SVNCommitInfo res = clientManager
 						.getCommitClient()
 						.doDelete(new SVNURL[] {getBranchUrl(branchName).appendPath(filePath, true)}, commitMessage);
-				return Long.toString(res.getNewRevision());
+				return new VCSCommit(Long.toString(res.getNewRevision()), commitMessage, res.getAuthor());
 			}
 		} catch (SVNException e) {
 			throw new EVCSException(e);
