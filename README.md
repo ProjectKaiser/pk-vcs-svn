@@ -1,4 +1,5 @@
-[![Release](https://jitpack.io/v/scm4j/scm4j-vcs-svn.svg)](https://jitpack.io/#scm4j/scm4j-vcs-svn)	
+[![Release](https://jitpack.io/v/scm4j/scm4j-vcs-svn.svg)](https://jitpack.io/#scm4j/scm4j-vcs-svn)
+[![Build Status](https://travis-ci.org/scm4j/scm4j-vcs-svn.svg?branch=master)](https://travis-ci.org/scm4j/scm4j-vcs-svn)
 
 # Overview
 scm4j-vcs-svn is lightweight library for execute basic SVN VCS operations (merge, branch create etc). It uses [scm4j-vcs-api](https://github.com/scm4j/scm4j-vcs-api) exposing IVCS implementation for SVN repositories and [SVNKit](https://svnkit.com/) as framework to work with SVN repositories.
