@@ -336,8 +336,9 @@ public class SVNVCS implements IVCS {
 		return repo.getRepoUrl();
 	}
 	
-	private void fillUnifiedDiffs(final String srcBranchName, final String dstBranchName, List<VCSDiffEntry> entries)
+	private List<VCSDiffEntry> fillUnifiedDiffs(final String srcBranchName, final String dstBranchName, List<VCSDiffEntry> entries)
 			throws SVNException {
+		List<VCSDiffEntry> res = new ArrayList<>();
 		for (VCSDiffEntry entry : entries) {
 			ByteArrayOutputStream baos = new ByteArrayOutputStream();
 			
@@ -363,11 +364,12 @@ public class SVNVCS implements IVCS {
             diff.run();
 
             try {
-				entry.setUnifiedDiff(baos.toString("UTF-8"));
+            	res.add(new VCSDiffEntry(entry.getFilePath(), entry.getChangeType(), baos.toString("UTF-8")));
 			} catch (UnsupportedEncodingException e) {
 				throw new RuntimeException(e);
 			}
 		}
+		return res;
 	}
 
 	private SVNLogEntry getBranchFirstCommit(final String branchPath) throws SVNException {
@@ -399,7 +401,7 @@ public class SVNVCS implements IVCS {
             		return;
             	}
             	VCSDiffEntry entry = new VCSDiffEntry(diffStatus.getPath(),
-                		SVNChangeTypeToVCSChangeType(diffStatus.getModificationType()));
+                		SVNChangeTypeToVCSChangeType(diffStatus.getModificationType()), null);
                 res.add(entry);
             }
 
@@ -426,7 +428,7 @@ public class SVNVCS implements IVCS {
 			try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
 				checkout(getBranchUrl(dstBranchName), wc.getFolder());
 				List<VCSDiffEntry> entries = getDiffEntries(srcBranchName, dstBranchName);
-				fillUnifiedDiffs(srcBranchName, dstBranchName, entries);
+				entries = fillUnifiedDiffs(srcBranchName, dstBranchName, entries);
 				return entries;
 			}
 		} catch (SVNException e) {
