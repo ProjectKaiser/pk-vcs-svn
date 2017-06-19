@@ -4,11 +4,9 @@ import org.junit.After;
 import org.mockito.Mockito;
 import org.scm4j.vcs.api.IVCS;
 import org.scm4j.vcs.api.abstracttest.VCSAbstractTest;
-import org.scm4j.vcs.api.exceptions.EVCSException;
 import org.scm4j.vcs.api.workingcopy.IVCSRepositoryWorkspace;
 import org.tmatesoft.svn.core.SVNDepth;
 import org.tmatesoft.svn.core.SVNException;
-import org.tmatesoft.svn.core.SVNURL;
 import org.tmatesoft.svn.core.internal.wc.DefaultSVNOptions;
 import org.tmatesoft.svn.core.io.SVNRepository;
 import org.tmatesoft.svn.core.wc.SVNWCClient;
@@ -19,8 +17,7 @@ import java.util.Collection;
 
 public class SVNVCSTest extends VCSAbstractTest {
 
-	private static final String TRUNK_CREATED_COMMIT_MESSAGE = "trunk/ created";
-	private static final String BRANCHES_CREATED_COMMIT_MESSAGE = "branches/ created";
+	private static final String FOLDER_STRUCT_CREATED_COMMIT_MESSAGE = "trunk/ and branches/ created";
 	private SVNVCS svn;
 	private SVNRepository svnRepo;
 	private SVNWCClient mockedSVNRevertClient;
@@ -30,21 +27,7 @@ public class SVNVCSTest extends VCSAbstractTest {
 	public void setUp() throws Exception {
 		super.setUp();
 		svnRepo = SVNVCSUtils.createRepository(new File(repoUrl.replace("file://", "")));
-
-		createFolder("/" + SVNVCS.MASTER_PATH, TRUNK_CREATED_COMMIT_MESSAGE);
-		createFolder("/" + SVNVCS.BRANCHES_PATH, BRANCHES_CREATED_COMMIT_MESSAGE);
-	}
-
-	private void createFolder(String folderName, String commitMessage) {
-		try {
-			svn
-					.getClientManager()
-					.getCommitClient()
-					.doMkDir(new SVNURL[] {SVNURL.parseURIEncoded(svn.getRepoUrl() + folderName)},
-							commitMessage);
-		} catch (SVNException e) {
-			throw new EVCSException(e);
-		}
+		SVNVCSUtils.createFolderStructure(svn, FOLDER_STRUCT_CREATED_COMMIT_MESSAGE);
 	}
 
 	@After
