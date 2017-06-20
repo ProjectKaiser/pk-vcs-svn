@@ -19,7 +19,7 @@ defaultTasks 'build';
 
 dependencies {
 	compile 'com.github.scm4j:scm4j-vcs-api:master-SNAPSHOT'
-	compile 'org.tmatesoft.svnkit:svnkit:1.8.14'
+    compile 'org.tmatesoft.svnkit:svnkit:1.8.6'
 	
 	testCompile 'junit:junit:4.12'
 	testCompile 'com.github.scm4j:scm4j-vcs-test:master-SNAPSHOT'
