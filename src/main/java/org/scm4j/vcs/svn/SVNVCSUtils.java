@@ -5,6 +5,7 @@ import org.tmatesoft.svn.core.SVNException;
 import org.tmatesoft.svn.core.SVNURL;
 import org.tmatesoft.svn.core.io.SVNRepository;
 import org.tmatesoft.svn.core.io.SVNRepositoryFactory;
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
 
@@ -24,23 +25,11 @@ public class SVNVCSUtils {
 					.getClientManager()
 					.getCommitClient()
 					.doMkDir(new SVNURL[] {
-							SVNURL.parseURIEncoded(appendSlash(svn.getRepoUrl()) + SVNVCS.MASTER_PATH),
-							SVNURL.parseURIEncoded(appendSlash(svn.getRepoUrl()) + SVNVCS.BRANCHES_PATH)},
+							SVNURL.parseURIEncoded(StringUtils.appendIfMissing(svn.getRepoUrl(), "/") + SVNVCS.MASTER_PATH),
+							SVNURL.parseURIEncoded(StringUtils.appendIfMissing(svn.getRepoUrl(), "/") + SVNVCS.BRANCHES_PATH)},
 							commitMessage);
 		} catch (SVNException e) {
 			throw new EVCSException(e);
 		}
-	}
-
-	public static String removeLastSlash(String url) {
-		if(url.endsWith("/")) {
-			return url.substring(0, url.lastIndexOf("/"));
-		} else {
-			return url;
-		}
-	}
-
-	public static String appendSlash(String url) {
-		return removeLastSlash(url) + "/";
 	}
 }

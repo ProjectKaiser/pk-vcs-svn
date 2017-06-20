@@ -438,14 +438,6 @@ public class SVNVCS implements IVCS {
 		}
 	}
 
-	public void createTrunk(String commitMessage) throws SVNException {
-		createBranch(SVNURL.parseURIEncoded(repoUrl), SVNURL.parseURIEncoded(repoUrl + MASTER_PATH), commitMessage);
-	}
-	
-	public void createBranches(String commitMessage) throws SVNException {
-		createBranch(SVNURL.parseURIEncoded(repoUrl), SVNURL.parseURIEncoded(repoUrl + BRANCHES_PATH), commitMessage);
-	}
-
 	@Override
 	public Set<String> getBranches() {
 		try {
