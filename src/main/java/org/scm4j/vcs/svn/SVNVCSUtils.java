@@ -26,7 +26,8 @@ public class SVNVCSUtils {
 					.getCommitClient()
 					.doMkDir(new SVNURL[] {
 							SVNURL.parseURIEncoded(StringUtils.appendIfMissing(svn.getRepoUrl(), "/") + SVNVCS.MASTER_PATH),
-							SVNURL.parseURIEncoded(StringUtils.appendIfMissing(svn.getRepoUrl(), "/") + SVNVCS.BRANCHES_PATH)},
+							SVNURL.parseURIEncoded(StringUtils.appendIfMissing(svn.getRepoUrl(), "/") + SVNVCS.BRANCHES_PATH),
+							SVNURL.parseURIEncoded(StringUtils.appendIfMissing(svn.getRepoUrl(), "/") + SVNVCS.TAGS_PATH)},
 							commitMessage);
 		} catch (SVNException e) {
 			throw new EVCSException(e);
