@@ -1,66 +1,28 @@
 package org.scm4j.vcs.svn;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
 import org.apache.commons.io.FileUtils;
-import org.scm4j.vcs.api.IVCS;
-import org.scm4j.vcs.api.VCSChangeType;
-import org.scm4j.vcs.api.VCSCommit;
-import org.scm4j.vcs.api.VCSDiffEntry;
-import org.scm4j.vcs.api.VCSMergeResult;
-import org.scm4j.vcs.api.WalkDirection;
+import org.scm4j.vcs.api.*;
 import org.scm4j.vcs.api.exceptions.EVCSBranchExists;
 import org.scm4j.vcs.api.exceptions.EVCSException;
 import org.scm4j.vcs.api.exceptions.EVCSFileNotFound;
 import org.scm4j.vcs.api.workingcopy.IVCSLockedWorkingCopy;
 import org.scm4j.vcs.api.workingcopy.IVCSRepositoryWorkspace;
 import org.scm4j.vcs.api.workingcopy.IVCSWorkspace;
-import org.tmatesoft.svn.core.ISVNLogEntryHandler;
-import org.tmatesoft.svn.core.SVNCommitInfo;
-import org.tmatesoft.svn.core.SVNDepth;
-import org.tmatesoft.svn.core.SVNDirEntry;
-import org.tmatesoft.svn.core.SVNException;
-import org.tmatesoft.svn.core.SVNLogEntry;
-import org.tmatesoft.svn.core.SVNNodeKind;
-import org.tmatesoft.svn.core.SVNProperties;
-import org.tmatesoft.svn.core.SVNURL;
+import org.tmatesoft.svn.core.*;
 import org.tmatesoft.svn.core.auth.BasicAuthenticationManager;
 import org.tmatesoft.svn.core.auth.SVNAuthentication;
 import org.tmatesoft.svn.core.auth.SVNPasswordAuthentication;
 import org.tmatesoft.svn.core.internal.wc.DefaultSVNOptions;
 import org.tmatesoft.svn.core.io.SVNRepository;
 import org.tmatesoft.svn.core.io.SVNRepositoryFactory;
-import org.tmatesoft.svn.core.wc.ISVNConflictHandler;
-import org.tmatesoft.svn.core.wc.ISVNOptions;
-import org.tmatesoft.svn.core.wc.SVNClientManager;
-import org.tmatesoft.svn.core.wc.SVNConflictChoice;
-import org.tmatesoft.svn.core.wc.SVNConflictDescription;
-import org.tmatesoft.svn.core.wc.SVNConflictResult;
-import org.tmatesoft.svn.core.wc.SVNCopyClient;
-import org.tmatesoft.svn.core.wc.SVNCopySource;
-import org.tmatesoft.svn.core.wc.SVNDiffClient;
-import org.tmatesoft.svn.core.wc.SVNRevision;
-import org.tmatesoft.svn.core.wc.SVNRevisionRange;
-import org.tmatesoft.svn.core.wc.SVNStatusType;
-import org.tmatesoft.svn.core.wc.SVNUpdateClient;
-import org.tmatesoft.svn.core.wc.SVNWCClient;
-import org.tmatesoft.svn.core.wc.SVNWCUtil;
-import org.tmatesoft.svn.core.wc2.ISvnObjectReceiver;
-import org.tmatesoft.svn.core.wc2.SvnDiff;
-import org.tmatesoft.svn.core.wc2.SvnDiffStatus;
-import org.tmatesoft.svn.core.wc2.SvnDiffSummarize;
-import org.tmatesoft.svn.core.wc2.SvnOperationFactory;
-import org.tmatesoft.svn.core.wc2.SvnTarget;
+import org.tmatesoft.svn.core.wc.*;
+import org.tmatesoft.svn.core.wc2.*;
+
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileWriter;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 
 public class SVNVCS implements IVCS {
 	private static final int SVN_PATH_IS_NOT_WORKING_COPY_ERROR_CODE = 155007;
@@ -77,7 +39,11 @@ public class SVNVCS implements IVCS {
 	
 	public static final String MASTER_PATH= "trunk/";
 	public static final String BRANCHES_PATH = "branches/";
-	private static final String SVN_VCS_TYPE_STRING = "svn";
+	public static final String SVN_VCS_TYPE_STRING = "svn";
+
+	public void setClientManager(SVNClientManager clientManager) {
+		this.clientManager = clientManager;
+	}
 	
 	public SVNClientManager getClientManager() {
 		return clientManager;
@@ -85,6 +51,18 @@ public class SVNVCS implements IVCS {
 	
 	public ISVNOptions getOptions() {
 		return options;
+	}
+
+	public SVNURL getTrunkSVNUrl() {
+		return trunkSVNUrl;
+	}
+
+	public SVNRepository getSVNRepository() {
+		return repository;
+	}
+
+	public void setSVNRepository(SVNRepository repository) {
+		this.repository = repository;
 	}
 	
 	public SVNVCS(IVCSRepositoryWorkspace repo, String user, String password) {
@@ -110,23 +88,23 @@ public class SVNVCS implements IVCS {
 				options, repository.getAuthenticationManager());
 	}
 	
-	public SVNRepository getRepository() {
-		return repository;
-	}
-	
-	private SVNURL getBranchUrl(String branchPath) throws SVNException {
+	public SVNURL getBranchUrl(String branchPath) throws Exception {
 		return SVNURL.parseURIEncoded(repoUrl + getBranchName(branchPath));
 	}
+
+
 	
 	@Override
-	public void createBranch(String srcBranchName, String dstBranchName, String commitMessage) {
+	public void createBranch(String srcBranchName, String dstBranchName, String commitMessage) throws EVCSBranchExists {
+		SVNURL fromUrl;
+		SVNURL toUrl;
 		try {
-			SVNURL fromUrl = getBranchUrl(srcBranchName);
-			SVNURL toUrl = getBranchUrl(dstBranchName);
-			createBranch(fromUrl, toUrl, commitMessage);
-		} catch (SVNException e) {
-			throw new EVCSException(e);
-		} 
+			fromUrl = getBranchUrl(srcBranchName);
+			toUrl = getBranchUrl(dstBranchName);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+		createBranch(fromUrl, toUrl, commitMessage);
 	}
 	
 	public void createBranch(SVNURL fromUrl, SVNURL toUrl, String commitMessage) {
@@ -164,6 +142,8 @@ public class SVNVCS implements IVCS {
 					.doDelete(new SVNURL[] { getBranchUrl(branchName) }, commitMessage);
 		} catch (SVNException e) {
 			throw new EVCSException(e);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
 		}
 	}
 	
@@ -225,7 +205,7 @@ public class SVNVCS implements IVCS {
 		return new SVNWCClient(authManager, options);
 	}
 
-	public void checkout(SVNURL sourceUrl, File destPath) throws SVNException {
+	public void checkout(SVNURL sourceUrl, File destPath) throws Exception {
 		SVNUpdateClient updateClient = clientManager.getUpdateClient();
 		updateClient.setIgnoreExternals(false);
 		if (isWorkingCopyInited(destPath)) {
@@ -236,7 +216,7 @@ public class SVNVCS implements IVCS {
 		}
 	}
 
-	private boolean isWorkingCopyInited(File destPath) {
+	public boolean isWorkingCopyInited(File destPath) {
 		try {
 			clientManager.getStatusClient().doStatus(destPath, false);
 			return true;
@@ -251,7 +231,7 @@ public class SVNVCS implements IVCS {
 
 	@Override
 	public void setCredentials(String user, String password) {
-		userPassAuth = SVNPasswordAuthentication.newInstance(user, password.toCharArray(), true, trunkSVNUrl, false);
+		userPassAuth = SVNPasswordAuthentication.newInstance(user, password == null ? null : password.toCharArray(), true, trunkSVNUrl, false);
 		authManager.setAuthentications(new SVNAuthentication[] {userPassAuth});
 	}
 
@@ -263,9 +243,9 @@ public class SVNVCS implements IVCS {
 
 	@Override
 	public String getFileContent(String branchName, String filePath, String encoding) {
-		ByteArrayOutputStream baos = new ByteArrayOutputStream( );
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		try {
-			repository.getFile(new File(getBranchName(branchName), filePath).getPath().replace("\\", "/"), 
+			repository.getFile(new File(getBranchName(branchName), filePath).getPath().replace("\\", "/"),
 					-1, new SVNProperties(), baos);
 			return baos.toString(encoding);
 		} catch (SVNException e) {
@@ -273,7 +253,7 @@ public class SVNVCS implements IVCS {
 				throw new EVCSFileNotFound(e);
 			}
 			throw new EVCSException(e);
-		} catch (UnsupportedEncodingException e) {
+		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
 		
@@ -337,7 +317,7 @@ public class SVNVCS implements IVCS {
 	}
 	
 	private List<VCSDiffEntry> fillUnifiedDiffs(final String srcBranchName, final String dstBranchName, List<VCSDiffEntry> entries)
-			throws SVNException {
+			throws Exception {
 		List<VCSDiffEntry> res = new ArrayList<>();
 		for (VCSDiffEntry entry : entries) {
 			ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -363,16 +343,12 @@ public class SVNVCS implements IVCS {
             diff.setOutput(baos);
             diff.run();
 
-            try {
-            	res.add(new VCSDiffEntry(entry.getFilePath(), entry.getChangeType(), baos.toString("UTF-8")));
-			} catch (UnsupportedEncodingException e) {
-				throw new RuntimeException(e);
-			}
+			res.add(new VCSDiffEntry(entry.getFilePath(), entry.getChangeType(), baos.toString("UTF-8")));
 		}
 		return res;
 	}
 
-	private SVNLogEntry getBranchFirstCommit(final String branchPath) throws SVNException {
+	protected SVNLogEntry getBranchFirstCommit(final String branchPath) throws Exception {
 		final List<SVNLogEntry> logEntries = new ArrayList<>();
 		repository.log(new String[] { getBranchName(branchPath) }, -1 /* start from head descending */,
 				0, true, true, -1, new ISVNLogEntryHandler() {
@@ -386,7 +362,7 @@ public class SVNVCS implements IVCS {
 	
 	
 	private List<VCSDiffEntry> getDiffEntries(final String srcBranchName, final String dstBranchName)
-			throws SVNException {
+			throws Exception {
 		final SvnOperationFactory svnOperationFactory = new SvnOperationFactory();
 		final SvnDiffSummarize summarizeDiff = svnOperationFactory.createDiffSummarize();
 		final List<VCSDiffEntry> res = new ArrayList<>();
@@ -405,21 +381,23 @@ public class SVNVCS implements IVCS {
                 res.add(entry);
             }
 
-			private VCSChangeType SVNChangeTypeToVCSChangeType(SVNStatusType modificationType) {
-				if (SVNStatusType.STATUS_ADDED.equals(modificationType)) {
-					return VCSChangeType.ADD;
-				} else if (SVNStatusType.STATUS_DELETED.equals(modificationType)) {
-					return VCSChangeType.DELETE;
-				} else if (SVNStatusType.STATUS_MODIFIED.equals(modificationType)) {
-					return VCSChangeType.MODIFY;
-				} else {
-					return VCSChangeType.UNKNOWN;
-				}
-			}
+
         });
 		summarizeDiff.run();
 
 		return res;
+	}
+
+	public VCSChangeType SVNChangeTypeToVCSChangeType(SVNStatusType modificationType) {
+		if (SVNStatusType.STATUS_ADDED.equals(modificationType)) {
+			return VCSChangeType.ADD;
+		} else if (SVNStatusType.STATUS_DELETED.equals(modificationType)) {
+			return VCSChangeType.DELETE;
+		} else if (SVNStatusType.STATUS_MODIFIED.equals(modificationType)) {
+			return VCSChangeType.MODIFY;
+		} else {
+			return VCSChangeType.UNKNOWN;
+		}
 	}
 
 	@Override
@@ -452,7 +430,7 @@ public class SVNVCS implements IVCS {
 		}
 	}
 	
-	private void addTrunkIfExists(Set<String> res) {
+	protected void addTrunkIfExists(Set<String> res) {
 		try {
 			if (repository.checkPath(MASTER_PATH, -1) == SVNNodeKind.DIR) {
 				res.add(MASTER_PATH.replace("/", ""));
@@ -463,7 +441,7 @@ public class SVNVCS implements IVCS {
 		
 	}
 
-	private void listEntries(Set<String> entries, String path) throws SVNException {
+	public void listEntries(Set<String> entries, String path) throws Exception {
 		@SuppressWarnings("unchecked")
 		Collection<SVNDirEntry> subEntries = repository.getDir(path, -1, null, (Collection<SVNDirEntry>) null);
 		for (SVNDirEntry entry : subEntries) {
@@ -501,13 +479,11 @@ public class SVNVCS implements IVCS {
 
 	@Override
 	public VCSCommit removeFile(String branchName, String filePath, String commitMessage) {
-		try {
-			try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
-				SVNCommitInfo res = clientManager
-						.getCommitClient()
-						.doDelete(new SVNURL[] {getBranchUrl(branchName).appendPath(filePath, true)}, commitMessage);
-				return new VCSCommit(Long.toString(res.getNewRevision()), commitMessage, res.getAuthor());
-			}
+		try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
+			SVNCommitInfo res = clientManager
+					.getCommitClient()
+					.doDelete(new SVNURL[] {getBranchUrl(branchName).appendPath(filePath, true)}, commitMessage);
+			return new VCSCommit(Long.toString(res.getNewRevision()), commitMessage, res.getAuthor());
 		} catch (SVNException e) {
 			throw new EVCSException(e);
 		} catch (Exception e) {
