@@ -66,12 +66,6 @@ import org.tmatesoft.svn.core.wc2.SvnDiffSummarize;
 import org.tmatesoft.svn.core.wc2.SvnOperationFactory;
 import org.tmatesoft.svn.core.wc2.SvnTarget;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileWriter;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
-
 public class SVNVCS implements IVCS {
 	private static final int SVN_PATH_IS_NOT_WORKING_COPY_ERROR_CODE = 155007;
 	private static final int SVN_ITEM_EXISTS_ERROR_CODE = 160020;
@@ -724,6 +718,33 @@ public class SVNVCS implements IVCS {
 						copyFromEntry.getCommitMessage(), copyFromEntry.getAuthor())));
 			}
 			return res;
+		} catch (SVNException e) {
+			throw new EVCSException(e);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+
+	@Override
+	public VCSTag getLastTag() {
+		try {
+			SVNLogEntry entry = revToSVNEntry(TAGS_PATH, -1L);
+			
+			Long copyFromRevision = -1L;
+			for (Iterator<?> changedPaths = entry.getChangedPaths().keySet().iterator(); changedPaths.hasNext();) {
+				SVNLogEntryPath entryPath = (SVNLogEntryPath) entry.getChangedPaths().get(changedPaths.next());
+				copyFromRevision = entryPath.getCopyRevision();
+			}
+			
+			SVNLogEntry copyFromEntry = revToSVNEntry("", copyFromRevision);
+			String tagName = "";
+			for (String name : revToSVNEntry(TAGS_PATH, -1L).getChangedPaths().keySet()) {
+				tagName = name.replace("/" + TAGS_PATH, "") ;
+			}
+			
+			return new VCSTag(tagName, entry.getMessage(), entry.getAuthor(), new VCSCommit(Long.toString(copyFromEntry.getRevision()),
+					copyFromEntry.getMessage(), copyFromEntry.getAuthor()));
 		} catch (SVNException e) {
 			throw new EVCSException(e);
 		} catch (Exception e) {
