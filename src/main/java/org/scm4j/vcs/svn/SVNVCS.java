@@ -3,7 +3,6 @@ package org.scm4j.vcs.svn;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileWriter;
-import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -53,7 +52,6 @@ import org.tmatesoft.svn.core.wc.SVNConflictResult;
 import org.tmatesoft.svn.core.wc.SVNCopyClient;
 import org.tmatesoft.svn.core.wc.SVNCopySource;
 import org.tmatesoft.svn.core.wc.SVNDiffClient;
-import org.tmatesoft.svn.core.wc.SVNInfo;
 import org.tmatesoft.svn.core.wc.SVNRevision;
 import org.tmatesoft.svn.core.wc.SVNRevisionRange;
 import org.tmatesoft.svn.core.wc.SVNStatusType;
@@ -66,12 +64,6 @@ import org.tmatesoft.svn.core.wc2.SvnDiffStatus;
 import org.tmatesoft.svn.core.wc2.SvnDiffSummarize;
 import org.tmatesoft.svn.core.wc2.SvnOperationFactory;
 import org.tmatesoft.svn.core.wc2.SvnTarget;
-
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileWriter;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
 
 public class SVNVCS implements IVCS {
 	private static final int SVN_PATH_IS_NOT_WORKING_COPY_ERROR_CODE = 155007;
@@ -88,9 +80,8 @@ public class SVNVCS implements IVCS {
 	
 	public static final String MASTER_PATH= "trunk/";
 	public static final String BRANCHES_PATH = "branches/";
-	public static final String SVN_VCS_TYPE_STRING = "svn";
 	public static final String TAGS_PATH = "tags/";
-	private static final String SVN_VCS_TYPE_STRING = "svn";
+	public static final String SVN_VCS_TYPE_STRING = "svn";
 
 	public void setClientManager(SVNClientManager clientManager) {
 		this.clientManager = clientManager;
@@ -610,9 +601,12 @@ public class SVNVCS implements IVCS {
 	@Override
 	public VCSCommit getHeadCommit(String branchName) {
 		try {
-			SVNDirEntry entry = repository.info(getBranchName(branchName), -1);
-			return new VCSCommit(Long.toString(entry.getRevision()), entry.getCommitMessage(), 
-					entry.getAuthor());
+			SVNLogEntry entry = revToSVNEntry(getBranchName(branchName), -1L);
+			if (entry != null) {
+				return new VCSCommit(Long.toString(entry.getRevision()), entry.getMessage(), 
+						entry.getAuthor());
+			}
+			return null;
 		} catch (SVNException e) {
 			throw new EVCSException(e);
 		} catch (Exception e) {
@@ -663,6 +657,16 @@ public class SVNVCS implements IVCS {
 		}
 	}
 	
+	private SVNLogEntry revToSVNEntry(String branchName, Long rev) throws Exception {
+		@SuppressWarnings("unchecked")
+		
+		Collection<SVNLogEntry> entries = repository.log(new String[] {branchName},  null, 0, rev, true, true);
+		if (entries != null) {
+			return entries.iterator().next();
+		}
+		return null;
+	}
+	
 	@Override
 	public List<VCSTag> getTags() {
 		Set<String> entries = new HashSet<>();
@@ -670,11 +674,9 @@ public class SVNVCS implements IVCS {
 			listEntries(entries, TAGS_PATH);
 			List<VCSTag> res = new ArrayList<>();
 			for (String entryStr : entries) {
-				SVNDirEntry entry = repository.info(entryStr, -1);
-				SVNInfo info = clientManager.getWCClient().doInfo(SVNURL.parseURIEncoded(repoUrl + entryStr), SVNRevision.HEAD, SVNRevision.HEAD);
 				
-				info.getCommittedRevision(); // tag revision number
-				
+				SVNLogEntry entry = revToSVNEntry(entryStr, -1L);
+
 				class SVNTagBaseCommit implements ISVNLogEntryHandler {
 					
 					public Long copyFromRevision;
@@ -695,12 +697,14 @@ public class SVNVCS implements IVCS {
 				
 				SVNDirEntry copyFromEntry = repository.info("", handler.copyFromRevision);
 				
-				res.add(new VCSTag(entry.getName(), entry.getCommitMessage(), entry.getAuthor(), new VCSCommit(Long.toString(copyFromEntry.getRevision()),
+				res.add(new VCSTag(Long.toString(entry.getRevision()), entry.getMessage(), entry.getAuthor(), new VCSCommit(Long.toString(copyFromEntry.getRevision()),
 						copyFromEntry.getCommitMessage(), copyFromEntry.getAuthor())));
 			}
 			return res;
 		} catch (SVNException e) {
 			throw new EVCSException(e);
-		} 
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
 	}
 }
