@@ -492,11 +492,10 @@ public class SVNVCS implements IVCS {
 		Collection<SVNDirEntry> subEntries = repository.getDir(path, -1, null, (Collection<SVNDirEntry>) null);
 		List<SVNDirEntry> list = new ArrayList<>(subEntries);
 		Collections.sort(list, new Comparator<SVNDirEntry>() {
-
 			@Override
 			public int compare(SVNDirEntry o1, SVNDirEntry o2) {
 				if (o1.getRevision() < o2.getRevision()) {
-					return -11;
+					return -1;
 				} 
 				if (o1.getRevision() > o2.getRevision()) {
 					return 1;
@@ -678,7 +677,7 @@ public class SVNVCS implements IVCS {
 	private SVNLogEntry revToSVNEntry(String branchName, Long rev) throws Exception {
 		SVNDirEntry info = repository.info(branchName, rev);
 		@SuppressWarnings("unchecked")
-		Collection<SVNLogEntry> entries = repository.log(new String[] {branchName}, null, info.getRevision(), rev, true, true);
+		Collection<SVNLogEntry> entries = repository.log(new String[] {branchName}, null, info.getRevision(), info.getRevision(), true, true);
 		if (entries != null) {
 			return entries.iterator().next();
 		}
