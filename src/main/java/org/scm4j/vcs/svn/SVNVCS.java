@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -462,8 +463,9 @@ public class SVNVCS implements IVCS {
 	@Override
 	public Set<String> getBranches() {
 		try {
-			Set<String> res = new HashSet<>();
-			listEntries(res, SVNVCS.BRANCHES_PATH);
+			List<String> entries = new ArrayList<>();
+			listEntries(entries, SVNVCS.BRANCHES_PATH);
+			Set<String> res = new HashSet<>(entries);
 			addTrunkIfExists(res);
 			return res;
 		} catch (SVNException e) {
@@ -484,12 +486,28 @@ public class SVNVCS implements IVCS {
 		
 	}
 
-	public void listEntries(Set<String> entries, String path) throws Exception {
+	
+	public void listEntries(List<String> entries, String path) throws Exception {
 		@SuppressWarnings("unchecked")
 		Collection<SVNDirEntry> subEntries = repository.getDir(path, -1, null, (Collection<SVNDirEntry>) null);
-		for (SVNDirEntry entry : subEntries) {
+		List<SVNDirEntry> list = new ArrayList<>(subEntries);
+		Collections.sort(list, new Comparator<SVNDirEntry>() {
+
+			@Override
+			public int compare(SVNDirEntry o1, SVNDirEntry o2) {
+				if (o1.getRevision() < o2.getRevision()) {
+					return -11;
+				} 
+				if (o1.getRevision() > o2.getRevision()) {
+					return 1;
+				}
+				return 0;
+			}
+			
+		});
+		for (SVNDirEntry entry : list) {
 			if (entry.getKind() == SVNNodeKind.DIR) {
-				entries.add(((path.equals(SVNVCS.BRANCHES_PATH) ? "" : path + "/") + entry.getName())
+				entries.add(((path.equals(SVNVCS.BRANCHES_PATH) ? "" : path) + entry.getName())
 						.replace(SVNVCS.BRANCHES_PATH, ""));
 			}
 		}
@@ -500,8 +518,8 @@ public class SVNVCS implements IVCS {
 		final List<String> res = new ArrayList<>();
 		try {
 			repository.log(new String[] { getBranchName(branchName) }, 
-					-1 /* start from head descending */, 
-					0, true, true, limit, new ISVNLogEntryHandler() {
+					-1L /* start from head descending */, 
+					0L, true, true, limit, new ISVNLogEntryHandler() {
 				@Override
 				public void handleLogEntry(SVNLogEntry logEntry) throws SVNException {
 					res.add(logEntry.getMessage());
@@ -658,9 +676,9 @@ public class SVNVCS implements IVCS {
 	}
 	
 	private SVNLogEntry revToSVNEntry(String branchName, Long rev) throws Exception {
+		SVNDirEntry info = repository.info(branchName, rev);
 		@SuppressWarnings("unchecked")
-		
-		Collection<SVNLogEntry> entries = repository.log(new String[] {branchName},  null, 0, rev, true, true);
+		Collection<SVNLogEntry> entries = repository.log(new String[] {branchName}, null, info.getRevision(), rev, true, true);
 		if (entries != null) {
 			return entries.iterator().next();
 		}
@@ -669,7 +687,7 @@ public class SVNVCS implements IVCS {
 	
 	@Override
 	public List<VCSTag> getTags() {
-		Set<String> entries = new HashSet<>();
+		List<String> entries = new ArrayList<>();
 		try {
 			listEntries(entries, TAGS_PATH);
 			List<VCSTag> res = new ArrayList<>();
@@ -697,7 +715,7 @@ public class SVNVCS implements IVCS {
 				
 				SVNDirEntry copyFromEntry = repository.info("", handler.copyFromRevision);
 				
-				res.add(new VCSTag(Long.toString(entry.getRevision()), entry.getMessage(), entry.getAuthor(), new VCSCommit(Long.toString(copyFromEntry.getRevision()),
+				res.add(new VCSTag(entryStr.replace(TAGS_PATH, ""), entry.getMessage(), entry.getAuthor(), new VCSCommit(Long.toString(copyFromEntry.getRevision()),
 						copyFromEntry.getCommitMessage(), copyFromEntry.getAuthor())));
 			}
 			return res;

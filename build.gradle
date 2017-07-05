@@ -22,7 +22,6 @@ jacocoTestReport {
 }
 
 repositories {
-	maven { url "https://maven.atlassian.com/3rdparty/" }
 	maven { url "https://jitpack.io" }
 	mavenCentral()
 }
@@ -31,7 +30,7 @@ defaultTasks 'build';
 
 dependencies {
 	compile 'com.github.scm4j:scm4j-vcs-api:master-SNAPSHOT'
-	compile 'org.tmatesoft.svnkit:svnkit:1.9.0-r10609-atlassian-hosted'
+	compile 'org.tmatesoft.svnkit:svnkit:1.8.14'
 	compile 'org.apache.commons:commons-lang3:3.5'
 	
 	testCompile 'junit:junit:4.12'

@@ -5,7 +5,6 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyBoolean;
-import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.isNull;
@@ -25,7 +24,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Collection;
-import java.util.Set;
+import java.util.List;
 
 import org.junit.After;
 import org.junit.Test;
@@ -311,14 +310,14 @@ public class SVNVCSTest extends VCSAbstractTest {
 
 	@Test
 	public void testGetBranchesExceptions() throws Exception {
-		doThrow(testSVNException).when(svn).listEntries(Matchers.<Set<String>>any(), anyString());
+		doThrow(testSVNException).when(svn).listEntries(Matchers.<List<String>>any(), anyString());
 		try {
 			vcs.getBranches();
 			fail();
 		} catch (EVCSException e) {
 			checkEVCSException(e);
 		}
-		doThrow(testCommonException).when(svn).listEntries(Matchers.<Set<String>>any(), anyString());
+		doThrow(testCommonException).when(svn).listEntries(Matchers.<List<String>>any(), anyString());
 		try {
 			vcs.getBranches();
 			fail();
@@ -345,7 +344,7 @@ public class SVNVCSTest extends VCSAbstractTest {
 		SVNRepository mockedRepo = spy(svn.getSVNRepository());
 		svn.setSVNRepository(mockedRepo);
 		doThrow(testSVNException).when(mockedRepo).log(any(String[].class), anyLong(), anyLong(), anyBoolean(), anyBoolean(),
-				anyInt(), any(ISVNLogEntryHandler.class));
+				any(Integer.class), any(ISVNLogEntryHandler.class));
 		try {
 			vcs.getCommitMessages(null, 0);
 			fail();
@@ -368,7 +367,7 @@ public class SVNVCSTest extends VCSAbstractTest {
 	public void testRemoveFileExceptions() throws Exception {
 		doThrow(testCommonException).when(svn).getBranchUrl(anyString());
 		try {
-			vcs.removeFile(null, "", "");
+			vcs.removeFile("", "", "");
 			fail();
 		} catch (RuntimeException e) {
 			checkCommonException(e);
@@ -380,10 +379,10 @@ public class SVNVCSTest extends VCSAbstractTest {
 		SVNRepository mockedRepo = spy(svn.getSVNRepository());
 		svn.setSVNRepository(mockedRepo);
 		doThrow(testSVNException).when(mockedRepo).log(any(String[].class), anyLong(), anyLong(), anyBoolean(), anyBoolean(),
-				anyInt(), any(ISVNLogEntryHandler.class));
+				any(Integer.class), any(ISVNLogEntryHandler.class));
 		doThrow(testCommonException).when(svn).getBranchFirstCommit(anyString());
 		try {
-			vcs.getCommitsRange(null, null, null);
+			vcs.getCommitsRange("", null, null);
 			fail();
 		} catch (RuntimeException e) {
 			checkCommonException(e);
@@ -401,9 +400,10 @@ public class SVNVCSTest extends VCSAbstractTest {
 	public void testGetHeadCommitExceptions() throws Exception {
 		SVNRepository mockedRepo = spy(svn.getSVNRepository());
 		svn.setSVNRepository(mockedRepo);
-		doThrow(testSVNException).when(mockedRepo).info(anyString(), anyLong());
+		doThrow(testSVNException).when(mockedRepo).log(any(String[].class), anyLong(), anyLong(), anyBoolean(), anyBoolean(),
+				any(Integer.class), any(ISVNLogEntryHandler.class));
 		try {
-			vcs.getHeadCommit(null);
+			vcs.getHeadCommit("");
 			fail();
 		} catch (EVCSException e) {
 			checkEVCSException(e);
@@ -416,7 +416,7 @@ public class SVNVCSTest extends VCSAbstractTest {
 		svn.setSVNRepository(mockedRepo);
 		doThrow(testSVNException).when(mockedRepo).checkPath(anyString(), anyLong());
 		try {
-			vcs.getHeadCommit(null);
+			vcs.fileExists("", "");
 			fail();
 		} catch (EVCSException e) {
 			checkEVCSException(e);
