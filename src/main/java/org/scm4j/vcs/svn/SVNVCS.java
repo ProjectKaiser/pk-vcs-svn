@@ -450,6 +450,18 @@ public class SVNVCS implements IVCS {
 		@SuppressWarnings("unchecked")
 		Collection<SVNDirEntry> subEntries = repository.getDir(path, -1, null, (Collection<SVNDirEntry>) null);
 		List<SVNDirEntry> list = new ArrayList<>(subEntries);
+		Collections.sort(list, new Comparator<SVNDirEntry>() {
+			@Override
+			public int compare(SVNDirEntry o1, SVNDirEntry o2) {
+				if (o1.getRevision() < o2.getRevision()) {
+					return -1;
+				}
+				if (o1.getRevision() > o2.getRevision()) {
+					return 1;
+				}
+				return 0;
+			}
+		});
 		for (SVNDirEntry entry : list) {
 			if (entry.getKind() == SVNNodeKind.DIR) {
 				entries.add(((path.equals(SVNVCS.BRANCHES_PATH) ? "" : path) + entry.getName())
@@ -620,7 +632,7 @@ public class SVNVCS implements IVCS {
 		}
 	}
 	
-	private SVNLogEntry revToSVNEntry(String branchName, Long rev) throws Exception {
+	protected SVNLogEntry revToSVNEntry(String branchName, Long rev) throws Exception {
 		SVNDirEntry info = repository.info(branchName, rev);
 		@SuppressWarnings("unchecked")
 		Collection<SVNLogEntry> entries = repository.log(new String[] {branchName}, null, info.getRevision(), info.getRevision(), true, true);
@@ -646,8 +658,8 @@ public class SVNVCS implements IVCS {
 
 					@Override
 					public void handleLogEntry(SVNLogEntry logEntry) throws SVNException {
-						for (Iterator<?> changedPaths = logEntry.getChangedPaths().keySet().iterator(); changedPaths.hasNext();) {
-							SVNLogEntryPath entryPath = (SVNLogEntryPath) logEntry.getChangedPaths().get(changedPaths.next());
+						for (String s : logEntry.getChangedPaths().keySet()) {
+							SVNLogEntryPath entryPath = logEntry.getChangedPaths().get(s);
 							copyFromRevision = entryPath.getCopyRevision();
 						}
 					}
@@ -678,8 +690,8 @@ public class SVNVCS implements IVCS {
 			SVNLogEntry entry = revToSVNEntry(TAGS_PATH, -1L);
 			
 			Long copyFromRevision = -1L;
-			for (Iterator<?> changedPaths = entry.getChangedPaths().keySet().iterator(); changedPaths.hasNext();) {
-				SVNLogEntryPath entryPath = (SVNLogEntryPath) entry.getChangedPaths().get(changedPaths.next());
+			for (String s : entry.getChangedPaths().keySet()) {
+				SVNLogEntryPath entryPath = entry.getChangedPaths().get(s);
 				copyFromRevision = entryPath.getCopyRevision();
 			}
 			
