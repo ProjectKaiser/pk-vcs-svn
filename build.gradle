@@ -29,12 +29,12 @@ repositories {
 defaultTasks 'build';
 
 dependencies {
-	compile 'com.github.scm4j:scm4j-vcs-api:2.0'
+	compile 'com.github.scm4j:scm4j-vcs-api:3.0'
 	compile 'org.tmatesoft.svnkit:svnkit:1.8.14'
 	compile 'org.apache.commons:commons-lang3:3.5'
 	
 	testCompile 'junit:junit:4.12'
-	testCompile 'com.github.scm4j:scm4j-vcs-test:2.0'
+	testCompile 'com.github.scm4j:scm4j-vcs-test:3.0'
 	testCompile 'org.mockito:mockito-core:2.0.62-beta'
 }
 
