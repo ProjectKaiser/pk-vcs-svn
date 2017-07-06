@@ -1,4 +1,6 @@
-[![Release](https://jitpack.io/v/scm4j/scm4j-vcs-svn.svg)](https://jitpack.io/#scm4j/scm4j-vcs-svn)	
+[![Release](https://jitpack.io/v/scm4j/scm4j-vcs-svn.svg)](https://jitpack.io/#scm4j/scm4j-vcs-svn)
+[![Build Status](https://travis-ci.org/scm4j/scm4j-vcs-svn.svg?branch=master)](https://travis-ci.org/scm4j/scm4j-vcs-svn)
+[![Coverage Status](https://coveralls.io/repos/github/scm4j/scm4j-vcs-svn/badge.svg?branch=master)](https://coveralls.io/github/scm4j/scm4j-vcs-svn?branch=master)
 
 # Overview
 scm4j-vcs-svn is lightweight library for execute basic SVN VCS operations (merge, branch create etc). It uses [scm4j-vcs-api](https://github.com/scm4j/scm4j-vcs-api) exposing IVCS implementation for SVN repositories and [SVNKit](https://svnkit.com/) as framework to work with SVN repositories.
@@ -38,22 +40,14 @@ Features:
 	}
 	```
 	Or download release jars from https://github.com/scm4j/scm4j-vcs-svn/releases
-- Create Workspace Home instance providing path to any folder as Workspace Home folder path. This folder will contain repositories folders (if different vcs or repositories are used)
-```java
+- Code snippet
+	```java
 	public static final String WORKSPACE_DIR = System.getProperty("java.io.tmpdir") + "svn-workspaces";
-	...
 	IVCSWorkspace workspace = new VCSWorkspace(WORKSPACE_DIR);
-	...
-```
-- Obtain Repository Workspace from Workspace Home providing a certain Repository's url. The obtained Repository Workspace will represent a folder within Workspace Home dir which will contain all Working Copies relating to the provided VCS Repository  
-```java
 	String repoUrl = "https://github.com/MyUser/MyRepo";
 	IVCSRepositoryWorkspace repoWorkspace = workspace.getVCSRepositoryWorkspace(repoUrl);
-```
-- Create `SVNVCS` instance providing Repository Workspace, username and password for Repository
-```java
-	IVCS vcs = new SVNVCS(repoWorkspace, username, pass);
-```
+	IVCS vcs = new SVNVCS(repoWorkspace, "username", "pass");
+	```
 - Use methods of `IVCS` interface. See [scm4j-vcs-api](https://github.com/scm4j/scm4j-vcs-api) for details
 - Use `vcs.setProxy()` and `vcs.setCredentials()` if necessary
 
