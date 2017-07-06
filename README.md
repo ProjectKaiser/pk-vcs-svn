@@ -1,5 +1,5 @@
 [![Release](https://jitpack.io/v/scm4j/scm4j-vcs-svn.svg)](https://jitpack.io/#scm4j/scm4j-vcs-svn)
-[![Build Status](https://travis-ci.org/scm4j/scm4j-vcs-svn.svg?branch=master)](https://travis-ci.org/scm4j/scm4j-vcs-svn)
+[![Build Status](https://travis-ci.org/scm4j/scm4j-vcs-svn.svg?branch=develop)](https://travis-ci.org/scm4j/scm4j-vcs-svn)
 [![Coverage Status](https://coveralls.io/repos/github/scm4j/scm4j-vcs-svn/badge.svg?branch=master)](https://coveralls.io/github/scm4j/scm4j-vcs-svn?branch=master)
 
 # Overview
