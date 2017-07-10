@@ -95,8 +95,6 @@ public class SVNVCS implements IVCS {
 		return SVNURL.parseURIEncoded(repoUrl + getBranchName(branchPath));
 	}
 
-
-	
 	@Override
 	public void createBranch(String srcBranchName, String dstBranchName, String commitMessage) throws EVCSBranchExists {
 		SVNURL fromUrl;
@@ -111,22 +109,21 @@ public class SVNVCS implements IVCS {
 	}
 	
 	public void createBranch(SVNURL fromUrl, SVNURL toUrl, String commitMessage) {
-		try {
-			try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
-				checkout(fromUrl, wc.getFolder());
-				
-				SVNCopyClient copyClient = new SVNCopyClient(authManager, options);
-				SVNCopySource copySource = new SVNCopySource(SVNRevision.WORKING, SVNRevision.WORKING,
-						wc.getFolder());
-				copySource.setCopyContents(false); 
-				
-				copyClient.doCopy(new SVNCopySource[] { copySource }, toUrl, 
-						false, // isMove
-						true, // make parents
-						true, // failWhenDstExistsb
-						commitMessage, // commit message
-						null); // SVNProperties
-			}
+		try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
+			checkout(fromUrl, wc.getFolder());
+
+			SVNCopyClient copyClient = new SVNCopyClient(authManager, options);
+			SVNCopySource copySource = new SVNCopySource(SVNRevision.WORKING, SVNRevision.WORKING,
+					wc.getFolder());
+			copySource.setCopyContents(false);
+
+			copyClient.doCopy(new SVNCopySource[] { copySource }, toUrl,
+					false, // isMove
+					true, // make parents
+					true, // failWhenDstExistsb
+					commitMessage, // commit message
+					null); // SVNProperties
+
 		} catch (SVNException e) {
 			if (e.getErrorMessage().getErrorCode().getCode() == SVN_ITEM_EXISTS_ERROR_CODE) {
 				throw new EVCSBranchExists(e);
@@ -153,50 +150,48 @@ public class SVNVCS implements IVCS {
 	@Override
 	public VCSMergeResult merge(String srcBranchName, String dstBranchName, String commitMessage) {
 		SVNDiffClient diffClient = clientManager.getDiffClient();
-		try {
-			try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
-				checkout(getBranchUrl(dstBranchName), wc.getFolder());
-				
-				DefaultSVNOptions options = (DefaultSVNOptions) diffClient.getOptions();
-				final List<String> conflictingFiles = new ArrayList<>();
-				options.setConflictHandler(new ISVNConflictHandler() {
-					@Override
-					public SVNConflictResult handleConflict(SVNConflictDescription conflictDescription)
-							throws SVNException {
-						conflictingFiles.add(conflictDescription.getMergeFiles().getLocalPath());
-						return new SVNConflictResult(SVNConflictChoice.POSTPONE, 
-								conflictDescription.getMergeFiles().getResultFile()); 
-					}
-				});
+		try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
+			checkout(getBranchUrl(dstBranchName), wc.getFolder());
 
-				
-				try {
-					SVNRevisionRange range = new SVNRevisionRange(SVNRevision.create(1), SVNRevision.HEAD);
-					diffClient.doMerge(getBranchUrl(srcBranchName),
-							SVNRevision.HEAD, Collections.singleton(range),
-							wc.getFolder(), SVNDepth.UNKNOWN, true, false, false, false);
-					
-					Boolean success = conflictingFiles.isEmpty();
-					if (success) {
-						clientManager
-								.getCommitClient()
-								.doCommit(new File[] {wc.getFolder()}, false, commitMessage, 
-								new SVNProperties(), null, true, true, SVNDepth.INFINITY);
-					} else {
-						try {
-							SVNWCClient wcClient = getRevertClient(options);
-							wcClient.doRevert(new File[] {wc.getFolder()}, SVNDepth.INFINITY, null);
-						} catch (Exception e) {
-							// It doesn't matter if we failed to revert. Just make the workspace corrupted.
-							wc.setCorrupted(true);
-						}
-					}
-					return new VCSMergeResult(success, conflictingFiles);
-				} catch (Exception e) {
-					wc.setCorrupted(true);
-					throw e;
+			DefaultSVNOptions options = (DefaultSVNOptions) diffClient.getOptions();
+			final List<String> conflictingFiles = new ArrayList<>();
+			options.setConflictHandler(new ISVNConflictHandler() {
+				@Override
+				public SVNConflictResult handleConflict(SVNConflictDescription conflictDescription)
+						throws SVNException {
+					conflictingFiles.add(conflictDescription.getMergeFiles().getLocalPath());
+					return new SVNConflictResult(SVNConflictChoice.POSTPONE,
+							conflictDescription.getMergeFiles().getResultFile());
 				}
-			} 
+			});
+
+			SVNRevisionRange range = new SVNRevisionRange(SVNRevision.create(1), SVNRevision.HEAD);
+			try {
+				diffClient.doMerge(getBranchUrl(srcBranchName),
+						SVNRevision.HEAD, Collections.singleton(range),
+						wc.getFolder(), SVNDepth.UNKNOWN, true, false, false, false);
+
+				Boolean success = conflictingFiles.isEmpty();
+
+				if (success) {
+					clientManager
+							.getCommitClient()
+							.doCommit(new File[] {wc.getFolder()}, false, commitMessage,
+							new SVNProperties(), null, true, true, SVNDepth.INFINITY);
+				} else {
+					try {
+						SVNWCClient wcClient = getRevertClient(options);
+						wcClient.doRevert(new File[] {wc.getFolder()}, SVNDepth.INFINITY, null);
+					} catch (Exception e) {
+						// It doesn't matter if we failed to revert. Just make the workspace corrupted.
+						wc.setCorrupted(true);
+					}
+				}
+				return new VCSMergeResult(success, conflictingFiles);
+			} catch (Exception e) {
+				wc.setCorrupted(true);
+				throw e;
+			}
 		} catch (SVNException e) {
 			throw new EVCSException(e);
 		} catch (Exception e) {
@@ -234,7 +229,8 @@ public class SVNVCS implements IVCS {
 
 	@Override
 	public void setCredentials(String user, String password) {
-		userPassAuth = SVNPasswordAuthentication.newInstance(user, password == null ? null : password.toCharArray(), true, trunkSVNUrl, false);
+		userPassAuth = SVNPasswordAuthentication.newInstance(user, password == null ? null : password.toCharArray(),
+				true, trunkSVNUrl, false);
 		authManager.setAuthentications(new SVNAuthentication[] {userPassAuth});
 	}
 
@@ -259,7 +255,6 @@ public class SVNVCS implements IVCS {
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
-		
 	}
 
 	private String getBranchName(String branchName) {
@@ -273,39 +268,37 @@ public class SVNVCS implements IVCS {
 
 	@Override
 	public VCSCommit setFileContent(String branchName, String filePath, String content, String commitMessage) {
-		try {
-			try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
-					checkout(getBranchUrl(branchName), wc.getFolder());
-					File file = new File(wc.getFolder(), filePath);
-					Boolean needToAdd = !file.exists();
-					if (!file.exists()) {
-						FileUtils.forceMkdir(file.getParentFile());
-						file.createNewFile();
-					}
-					
-					FileWriter writer = new FileWriter(file);
-					writer.write(content);
-					writer.close();
-						
-					if (needToAdd) {
-						clientManager
-								.getWCClient()
-								.doAdd(file, 
-										true /* force, avoiding "file is already under version control" exception*/,
-										false, false, SVNDepth.EMPTY, false, true);
-					}
-					
-					try {
-						SVNCommitInfo newCommit = clientManager
-								.getCommitClient()
-								.doCommit(new File[] { wc.getFolder() }, false, commitMessage,
-										new SVNProperties(), null, false, false, SVNDepth.INFINITY);
-						return newCommit == SVNCommitInfo.NULL ? VCSCommit.EMPTY :
-							new VCSCommit(Long.toString(newCommit.getNewRevision()), commitMessage, newCommit.getAuthor());
-					} catch (SVNException e) {
-						wc.setCorrupted(true);
-						throw e;
-					}
+		try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
+			checkout(getBranchUrl(branchName), wc.getFolder());
+			File file = new File(wc.getFolder(), filePath);
+			Boolean needToAdd = !file.exists();
+			if (!file.exists()) {
+				FileUtils.forceMkdir(file.getParentFile());
+				file.createNewFile();
+			}
+
+			FileWriter writer = new FileWriter(file);
+			writer.write(content);
+			writer.close();
+
+			if (needToAdd) {
+				clientManager
+						.getWCClient()
+						.doAdd(file,
+								true /* force, avoiding "file is already under version control" exception */,
+								false, false, SVNDepth.EMPTY, false, true);
+			}
+
+			try {
+				SVNCommitInfo newCommit = clientManager
+						.getCommitClient()
+						.doCommit(new File[] { wc.getFolder() }, false, commitMessage,
+								new SVNProperties(), null, false, false, SVNDepth.INFINITY);
+				return newCommit == SVNCommitInfo.NULL ? VCSCommit.EMPTY :
+					new VCSCommit(Long.toString(newCommit.getNewRevision()), commitMessage, newCommit.getAuthor());
+			} catch (SVNException e) {
+				wc.setCorrupted(true);
+				throw e;
 			}
 		} catch (SVNException e) {
 			throw new EVCSException(e);
@@ -405,13 +398,11 @@ public class SVNVCS implements IVCS {
 
 	@Override
 	public List<VCSDiffEntry> getBranchesDiff(final String srcBranchName, final String dstBranchName) {
-		try {
-			try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
-				checkout(getBranchUrl(dstBranchName), wc.getFolder());
-				List<VCSDiffEntry> entries = getDiffEntries(srcBranchName, dstBranchName);
-				entries = fillUnifiedDiffs(srcBranchName, dstBranchName, entries);
-				return entries;
-			}
+		try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
+			checkout(getBranchUrl(dstBranchName), wc.getFolder());
+			List<VCSDiffEntry> entries = getDiffEntries(srcBranchName, dstBranchName);
+			entries = fillUnifiedDiffs(srcBranchName, dstBranchName, entries);
+			return entries;
 		} catch (SVNException e) {
 			throw new EVCSException(e);
 		} catch (Exception e) {
@@ -442,11 +433,9 @@ public class SVNVCS implements IVCS {
 		} catch (SVNException e) {
 			throw new EVCSException(e);
 		}
-		
 	}
 
-	
-	public void listEntries(List<String> entries, String path) throws Exception {
+	protected void listEntries(List<String> entries, String path) throws Exception {
 		@SuppressWarnings("unchecked")
 		Collection<SVNDirEntry> subEntries = repository.getDir(path, -1, null, (Collection<SVNDirEntry>) null);
 		List<SVNDirEntry> list = new ArrayList<>(subEntries);
@@ -514,7 +503,6 @@ public class SVNVCS implements IVCS {
 	public List<VCSCommit> getCommitsRange(String branchName, String firstCommitId, WalkDirection direction, int limit) {
 		final List<VCSCommit> res = new ArrayList<>();
 		try {
-
 			Long sinceCommit;
 			Long untilCommit;
 			if (direction == WalkDirection.ASC) {
@@ -682,7 +670,6 @@ public class SVNVCS implements IVCS {
 			throw new RuntimeException(e);
 		}
 	}
-
 
 	@Override
 	public VCSTag getLastTag() {
