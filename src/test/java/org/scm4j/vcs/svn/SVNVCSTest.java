@@ -158,7 +158,7 @@ public class SVNVCSTest extends VCSAbstractTest {
 		doThrow(testException).when(svn).getBranchFirstCommit(null);
 		doThrow(testException).when(svn).revToSVNEntry(anyString(), any(Long.class));
 		try {
-			m.invoke(vcs, params);
+			m.invoke(vcs, params); 
 			if (wasMockedMethodInvoked()) {
 				fail();
 			}
@@ -319,20 +319,6 @@ public class SVNVCSTest extends VCSAbstractTest {
 		doThrow(testSVNException).when(mockedRepo).checkPath(anyString(),anyLong());
 		try {
 			svn.addTrunkIfExists(null);
-			fail();
-		} catch (EVCSException e) {
-			checkEVCSException(e);
-		}
-	}
-
-	@Test
-	public void testGetCommitMessagesExceptions() throws Exception {
-		SVNRepository mockedRepo = spy(svn.getSVNRepository());
-		svn.setSVNRepository(mockedRepo);
-		doThrow(testSVNException).when(mockedRepo).log(any(String[].class), anyLong(), anyLong(), anyBoolean(), anyBoolean(),
-				any(Integer.class), any(ISVNLogEntryHandler.class));
-		try {
-			vcs.getCommitMessages(null, 0);
 			fail();
 		} catch (EVCSException e) {
 			checkEVCSException(e);

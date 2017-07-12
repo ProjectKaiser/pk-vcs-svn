@@ -458,17 +458,18 @@ public class SVNVCS implements IVCS {
 			}
 		}
 	}
-
+	
 	@Override
-	public List<String> getCommitMessages(String branchName, Integer limit) {
-		final List<String> res = new ArrayList<>();
+	public List<VCSCommit> log(String branchName, int limit) {
+		final List<VCSCommit> res = new ArrayList<>();
 		try {
+			getBranchUrl(branchName); // for exception test only
 			repository.log(new String[] { getBranchName(branchName) }, 
 					-1L /* start from head descending */, 
 					0L, true, true, limit, new ISVNLogEntryHandler() {
 				@Override
 				public void handleLogEntry(SVNLogEntry logEntry) throws SVNException {
-					res.add(logEntry.getMessage());
+					res.add(svnLogEntryToVCSCommit(logEntry));
 				}
 			});
 			return res;
@@ -518,8 +519,7 @@ public class SVNVCS implements IVCS {
 					new ISVNLogEntryHandler() {
 				@Override
 				public void handleLogEntry(SVNLogEntry logEntry) throws SVNException {
-					VCSCommit commit = new VCSCommit(Long.toString(logEntry.getRevision()), logEntry.getMessage(),
-							logEntry.getAuthor());
+					VCSCommit commit = svnLogEntryToVCSCommit(logEntry);
 					res.add(commit);
 				}
 			});
@@ -529,6 +529,11 @@ public class SVNVCS implements IVCS {
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
+	}
+	
+	private VCSCommit svnLogEntryToVCSCommit(SVNLogEntry logEntry) {
+		return new VCSCommit(Long.toString(logEntry.getRevision()), logEntry.getMessage(),
+				logEntry.getAuthor());
 	}
 
 	@Override
@@ -543,9 +548,7 @@ public class SVNVCS implements IVCS {
 					new ISVNLogEntryHandler() {
 				@Override
 				public void handleLogEntry(SVNLogEntry logEntry) throws SVNException {
-					VCSCommit commit = new VCSCommit(Long.toString(logEntry.getRevision()), logEntry.getMessage(),
-							logEntry.getAuthor());
-					res.add(commit);
+					res.add(svnLogEntryToVCSCommit(logEntry));
 				}
 			});
 			return res;
@@ -566,8 +569,7 @@ public class SVNVCS implements IVCS {
 		try {
 			SVNLogEntry entry = revToSVNEntry(getBranchName(branchName), -1L);
 			if (entry != null) {
-				return new VCSCommit(Long.toString(entry.getRevision()), entry.getMessage(),
-						entry.getAuthor());
+				return svnLogEntryToVCSCommit(entry);
 			}
 			return null;
 		} catch (SVNException e) {
@@ -688,8 +690,7 @@ public class SVNVCS implements IVCS {
 				tagName = name.replace("/" + TAGS_PATH, "") ;
 			}
 			
-			return new VCSTag(tagName, entry.getMessage(), entry.getAuthor(), new VCSCommit(Long.toString(copyFromEntry.getRevision()),
-					copyFromEntry.getMessage(), copyFromEntry.getAuthor()));
+			return new VCSTag(tagName, entry.getMessage(), entry.getAuthor(), svnLogEntryToVCSCommit(copyFromEntry));
 		} catch (SVNException e) {
 			throw new EVCSException(e);
 		} catch (Exception e) {
