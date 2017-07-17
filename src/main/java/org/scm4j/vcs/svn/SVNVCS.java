@@ -697,4 +697,17 @@ public class SVNVCS implements IVCS {
 			throw new RuntimeException(e);
 		}
 	}
+
+	@Override
+	public void removeTag(String tagName) {
+		try {
+			clientManager
+					.getCommitClient()
+					.doDelete(new SVNURL[] { SVNURL.parseURIEncoded(repoUrl + TAGS_PATH + tagName) }, null);
+		} catch (SVNException e) {
+			throw new EVCSException(e);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
 }
