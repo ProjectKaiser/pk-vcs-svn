@@ -154,7 +154,7 @@ public class SVNVCSTest extends VCSAbstractTest {
 		reset(svn);
 		doThrow(testException).when(svn).checkout(any(SVNURL.class), any(File.class));
 		doThrow(testException).when(svn).getBranchUrl(null);
-		doThrow(testException).when(svn).listEntries(Matchers.<List<String>>any(), anyString());
+		doThrow(testException).when(svn).listEntries(Matchers.<List<String>>any(), anyString(), anyString());
 		doThrow(testException).when(svn).getBranchFirstCommit(null);
 		doThrow(testException).when(svn).revToSVNEntry(anyString(), any(Long.class));
 		try {
@@ -186,7 +186,7 @@ public class SVNVCSTest extends VCSAbstractTest {
 		} catch (WantedButNotInvoked e1) {
 		}
 		try {
-			verify(svn).listEntries(Matchers.<List<String>>any(), anyString());
+			verify(svn).listEntries(Matchers.<List<String>>any(), anyString(), anyString());
 			return true;
 		} catch (WantedButNotInvoked e1) {
 		}
@@ -395,13 +395,13 @@ public class SVNVCSTest extends VCSAbstractTest {
 				Matchers.<Collection<SVNDirEntry>>any());
 
 		List<String> entries = new ArrayList<>();
-		svn.listEntries(entries, "");
+		svn.listEntries(entries, "", "");
 		assertEquals(entries.get(0), entry1.getName());
 		assertEquals(entries.get(1), entry2.getName());
 		doReturn(Arrays.asList(entry1, entry1)).when(mockedRepo).getDir(anyString(), anyLong(), any(SVNProperties.class),
 				Matchers.<Collection<SVNDirEntry>>any());
 		entries = new ArrayList<>();
-		svn.listEntries(entries, "");
+		svn.listEntries(entries, "", "");
 		assertEquals(entries.get(0), entry1.getName());
 		assertEquals(entries.get(1), entry1.getName());
 	}
