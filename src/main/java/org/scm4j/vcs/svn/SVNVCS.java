@@ -414,7 +414,7 @@ public class SVNVCS implements IVCS {
 	public Set<String> getBranches(String path) {
 		try {
 			List<String> entries = new ArrayList<>();
-			listEntries(entries, SVNVCS.BRANCHES_PATH, path);
+			listEntries(entries, SVNVCS.BRANCHES_PATH, path == null ? "" : path);
 			Set<String> res = new HashSet<>(entries);
 			addTrunkIfExists(res);
 			return res;
@@ -706,6 +706,7 @@ public class SVNVCS implements IVCS {
 	@Override
 	public void removeTag(String tagName) {
 		try {
+			getBranchUrl(null); // for test exceptions throwing only 
 			clientManager
 					.getCommitClient()
 					.doDelete(new SVNURL[] { SVNURL.parseURIEncoded(repoUrl + TAGS_PATH + tagName) }, null);

@@ -425,4 +425,12 @@ public class SVNVCSTest extends VCSAbstractTest {
 	public void testSVNVCSUtilsCreation() {
 		assertNotNull(new SVNVCSUtils());
 	}
+	
+	@Test
+	public void testListEntriesNone() throws Exception {
+		SVNRepository mockedRepo = spy(svn.getSVNRepository());
+		svn.setSVNRepository(mockedRepo);
+		doReturn(SVNNodeKind.NONE).when(mockedRepo).checkPath(anyString(), anyLong());
+		svn.listEntries(null, null, null); // expecting no NPE 
+	}
 }
