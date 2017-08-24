@@ -110,7 +110,7 @@ public class SVNVCS implements IVCS {
 	
 	public void createBranch(SVNURL fromUrl, SVNURL toUrl, String commitMessage) {
 		try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
-			checkout(fromUrl, wc.getFolder());
+			checkout(fromUrl, wc.getFolder(), null);
 
 			SVNCopyClient copyClient = new SVNCopyClient(authManager, options);
 			SVNCopySource copySource = new SVNCopySource(SVNRevision.WORKING, SVNRevision.WORKING,
@@ -151,7 +151,7 @@ public class SVNVCS implements IVCS {
 	public VCSMergeResult merge(String srcBranchName, String dstBranchName, String commitMessage) {
 		SVNDiffClient diffClient = clientManager.getDiffClient();
 		try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
-			checkout(getBranchUrl(dstBranchName), wc.getFolder());
+			checkout(getBranchUrl(dstBranchName), wc.getFolder(), null);
 
 			DefaultSVNOptions options = (DefaultSVNOptions) diffClient.getOptions();
 			final List<String> conflictingFiles = new ArrayList<>();
@@ -203,14 +203,14 @@ public class SVNVCS implements IVCS {
 		return new SVNWCClient(authManager, options);
 	}
 
-	public void checkout(SVNURL sourceUrl, File destPath) throws Exception {
+	public void checkout(SVNURL sourceUrl, File destPath, String revision) throws Exception {
 		SVNUpdateClient updateClient = clientManager.getUpdateClient();
 		updateClient.setIgnoreExternals(false);
+		SVNRevision svnRevision = revision == null ? SVNRevision.HEAD : SVNRevision.parse(revision);
 		if (isWorkingCopyInited(destPath)) {
-			updateClient.doSwitch(destPath, sourceUrl, SVNRevision.HEAD, 
-					SVNRevision.HEAD, SVNDepth.INFINITY, false, false);
+			updateClient.doSwitch(destPath, sourceUrl, svnRevision, svnRevision, SVNDepth.INFINITY, false, false);
 		} else {
-			updateClient.doCheckout(sourceUrl, destPath, SVNRevision.HEAD, SVNRevision.HEAD, SVNDepth.UNKNOWN, false);
+			updateClient.doCheckout(sourceUrl, destPath, svnRevision, svnRevision, SVNDepth.UNKNOWN, false);
 		}
 	}
 
@@ -232,6 +232,8 @@ public class SVNVCS implements IVCS {
 		userPassAuth = SVNPasswordAuthentication.newInstance(user, password == null ? null : password.toCharArray(),
 				true, trunkSVNUrl, false);
 		authManager.setAuthentications(new SVNAuthentication[] {userPassAuth});
+		clientManager = SVNClientManager.newInstance(
+				options, repository.getAuthenticationManager());
 	}
 
 	@Override
@@ -269,7 +271,7 @@ public class SVNVCS implements IVCS {
 	@Override
 	public VCSCommit setFileContent(String branchName, String filePath, String content, String commitMessage) {
 		try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
-			checkout(getBranchUrl(branchName), wc.getFolder());
+			checkout(getBranchUrl(branchName), wc.getFolder(), null);
 			File file = new File(wc.getFolder(), filePath);
 			Boolean needToAdd = !file.exists();
 			if (!file.exists()) {
@@ -399,7 +401,7 @@ public class SVNVCS implements IVCS {
 	@Override
 	public List<VCSDiffEntry> getBranchesDiff(final String srcBranchName, final String dstBranchName) {
 		try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
-			checkout(getBranchUrl(dstBranchName), wc.getFolder());
+			checkout(getBranchUrl(dstBranchName), wc.getFolder(), null);
 			List<VCSDiffEntry> entries = getDiffEntries(srcBranchName, dstBranchName);
 			entries = fillUnifiedDiffs(srcBranchName, dstBranchName, entries);
 			return entries;
@@ -602,12 +604,13 @@ public class SVNVCS implements IVCS {
 	}
 	
 	@Override
-	public VCSTag createTag(String branchName, String tagName, String tagMessage) throws EVCSTagExists {
+	public VCSTag createTag(String branchName, String tagName, String tagMessage, String revisionToTag) throws EVCSTagExists {
 		try {
 			SVNURL srcURL = getBranchUrl(branchName); 
-			SVNURL dstURL = SVNURL.parseURIEncoded(repoUrl + TAGS_PATH + tagName); 
-			SVNCopySource copySource = 
-					new SVNCopySource(SVNRevision.HEAD, SVNRevision.HEAD, srcURL); 
+			SVNURL dstURL = SVNURL.parseURIEncoded(repoUrl + TAGS_PATH + tagName);
+			SVNCopySource copySource = revisionToTag == null ?
+					new SVNCopySource(SVNRevision.HEAD, SVNRevision.HEAD, srcURL) :
+					new SVNCopySource(SVNRevision.parse(revisionToTag), SVNRevision.parse(revisionToTag), srcURL);
 
 			clientManager.getCopyClient().doCopy(new SVNCopySource[] {copySource}, dstURL, 
 			        false, false, true, tagMessage, null);
@@ -717,11 +720,35 @@ public class SVNVCS implements IVCS {
 		}
 	}
 
+	@Override
+	public void checkout(String branchName, String targetPath, String revision) {
+		try {
+			checkout(getBranchUrl(branchName), new File(targetPath), revision);
+		} catch (SVNException e) {
+			throw new EVCSException(e);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
 
 	@Override
-	public void checkout(String branchName, String targetPath) {
+	public Boolean isRevisionTagged(String revision) {
+		List<String> entries = new ArrayList<>();
 		try {
-			checkout(getBranchUrl(branchName), new File(targetPath));
+			listEntries(entries, TAGS_PATH, "");
+			SVNTagBaseCommit handler;
+			for (String entryStr : entries) {
+				handler = new SVNTagBaseCommit();
+				
+				repository.log(new String[] { entryStr }, -1 /* start from head descending */,
+						0, true, true, -1, handler);
+				
+				SVNDirEntry copyFromEntry = repository.info("", handler.copyFromRevision);
+				if (copyFromEntry.getRevision() == Long.parseLong(revision)) {
+					return true;
+				}
+			}
+			return false;
 		} catch (SVNException e) {
 			throw new EVCSException(e);
 		} catch (Exception e) {

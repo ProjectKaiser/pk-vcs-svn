@@ -152,7 +152,7 @@ public class SVNVCSTest extends VCSAbstractTest {
 
 	private void testExceptionThrowing(Exception testException, Method m, Object[] params) throws Exception {
 		reset(svn);
-		doThrow(testException).when(svn).checkout(any(SVNURL.class), any(File.class));
+		doThrow(testException).when(svn).checkout(any(SVNURL.class), any(File.class), (String) isNull());
 		doThrow(testException).when(svn).getBranchUrl(null);
 		doThrow(testException).when(svn).listEntries(Matchers.<List<String>>any(), anyString(), anyString());
 		doThrow(testException).when(svn).getBranchFirstCommit(null);
@@ -176,7 +176,7 @@ public class SVNVCSTest extends VCSAbstractTest {
 
 	private boolean wasMockedMethodInvoked() throws Exception {
 		try {
-			verify(svn).checkout(any(SVNURL.class), any(File.class));
+			verify(svn).checkout(any(SVNURL.class), any(File.class), (String) isNull());
 			return true;
 		} catch (WantedButNotInvoked e1) {
 		}
@@ -224,14 +224,14 @@ public class SVNVCSTest extends VCSAbstractTest {
 
 	@Test
 	public void testCreateBranchExceptions() throws Exception {
-		doThrow(testCommonException).when(svn).checkout(any(SVNURL.class), any(File.class));
+		doThrow(testCommonException).when(svn).checkout(any(SVNURL.class), any(File.class), (String) isNull());
 		try {
 			vcs.createBranch("", "", "");
 			fail();
 		} catch (RuntimeException e) {
 			checkCommonException(e);
 		}
-		doThrow(testSVNException).when(svn).checkout(any(SVNURL.class), any(File.class));
+		doThrow(testSVNException).when(svn).checkout(any(SVNURL.class), any(File.class), (String) isNull());
 		try {
 			vcs.createBranch("", "", "");
 			fail();
