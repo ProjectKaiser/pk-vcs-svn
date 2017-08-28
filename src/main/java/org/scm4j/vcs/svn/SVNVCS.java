@@ -616,8 +616,10 @@ public class SVNVCS implements IVCS {
 			        false, false, true, tagMessage, null);
 			
 			SVNDirEntry entry = repository.info(TAGS_PATH + tagName, -1);
+
+			SVNLogEntry copyFromEntry = revToSVNEntry(getBranchName(branchName), Long.parseLong(revisionToTag));
 			
-			VCSTag tag = new VCSTag(tagName, tagMessage, entry.getAuthor(), getHeadCommit(branchName));
+			VCSTag tag = new VCSTag(tagName, tagMessage, entry.getAuthor(), svnLogEntryToVCSCommit(copyFromEntry));
 			return tag;
 		} catch (SVNException e) {
 			if (e.getErrorMessage().getErrorCode().getCode() == SVN_ITEM_EXISTS_ERROR_CODE) {
@@ -749,6 +751,27 @@ public class SVNVCS implements IVCS {
 				}
 			}
 			return false;
+		} catch (SVNException e) {
+			throw new EVCSException(e);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	@Override
+	public VCSTag getTagByName(String tagName) {
+		try {
+			SVNLogEntry entry = revToSVNEntry(TAGS_PATH + tagName, -1L);
+
+			Long copyFromRevision = -1L;
+			for (String s : entry.getChangedPaths().keySet()) {
+				SVNLogEntryPath entryPath = entry.getChangedPaths().get(s);
+				copyFromRevision = entryPath.getCopyRevision();
+			}
+
+			SVNLogEntry copyFromEntry = revToSVNEntry("", copyFromRevision);
+
+			return new VCSTag(tagName, entry.getMessage(), entry.getAuthor(), svnLogEntryToVCSCommit(copyFromEntry));
 		} catch (SVNException e) {
 			throw new EVCSException(e);
 		} catch (Exception e) {
