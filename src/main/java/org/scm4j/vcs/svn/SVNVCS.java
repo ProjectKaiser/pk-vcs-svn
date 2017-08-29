@@ -617,10 +617,10 @@ public class SVNVCS implements IVCS {
 			
 			SVNDirEntry entry = repository.info(TAGS_PATH + tagName, -1);
 
-			SVNLogEntry copyFromEntry = revToSVNEntry(getBranchName(branchName), Long.parseLong(revisionToTag));
+			SVNLogEntry copyFromEntry = revToSVNEntry(getBranchName(branchName),
+					revisionToTag == null ? SVNRevision.HEAD.getNumber() : Long.parseLong(revisionToTag));
 			
-			VCSTag tag = new VCSTag(tagName, tagMessage, entry.getAuthor(), svnLogEntryToVCSCommit(copyFromEntry));
-			return tag;
+			return new VCSTag(tagName, tagMessage, entry.getAuthor(), svnLogEntryToVCSCommit(copyFromEntry));
 		} catch (SVNException e) {
 			if (e.getErrorMessage().getErrorCode().getCode() == SVN_ITEM_EXISTS_ERROR_CODE) {
 				throw new EVCSTagExists(e);
