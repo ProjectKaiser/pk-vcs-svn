@@ -761,6 +761,9 @@ public class SVNVCS implements IVCS {
 	@Override
 	public VCSTag getTagByName(String tagName) {
 		try {
+			if (repository.info(TAGS_PATH + tagName, -1L) == null) {
+				return null;
+			}
 			SVNLogEntry entry = revToSVNEntry(TAGS_PATH + tagName, -1L);
 
 			Long copyFromRevision = -1L;
