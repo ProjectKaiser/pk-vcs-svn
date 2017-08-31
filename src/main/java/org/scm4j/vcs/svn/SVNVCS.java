@@ -287,7 +287,7 @@ public class SVNVCS implements IVCS {
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		try {
 			repository.getFile(new File(getBranchName(branchName), filePath).getPath().replace("\\", "/"),
-					revision == null? -1 : Long.parseLong(revision), new SVNProperties(), baos);
+					(revision == null || revision.isEmpty()) ? -1 : Long.parseLong(revision), new SVNProperties(), baos);
 			return baos.toString(StandardCharsets.UTF_8.name());
 		} catch (SVNException e) {
 			if (e.getErrorMessage().getErrorCode().getCode() == SVN_FILE_NOT_FOUND_ERROR_CODE) {
