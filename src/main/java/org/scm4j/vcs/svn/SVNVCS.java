@@ -1,7 +1,25 @@
 package org.scm4j.vcs.svn;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileWriter;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 import org.apache.commons.io.FileUtils;
-import org.scm4j.vcs.api.*;
+import org.scm4j.vcs.api.IVCS;
+import org.scm4j.vcs.api.VCSChangeType;
+import org.scm4j.vcs.api.VCSCommit;
+import org.scm4j.vcs.api.VCSDiffEntry;
+import org.scm4j.vcs.api.VCSMergeResult;
+import org.scm4j.vcs.api.VCSTag;
+import org.scm4j.vcs.api.WalkDirection;
 import org.scm4j.vcs.api.exceptions.EVCSBranchExists;
 import org.scm4j.vcs.api.exceptions.EVCSException;
 import org.scm4j.vcs.api.exceptions.EVCSFileNotFound;
@@ -9,21 +27,43 @@ import org.scm4j.vcs.api.exceptions.EVCSTagExists;
 import org.scm4j.vcs.api.workingcopy.IVCSLockedWorkingCopy;
 import org.scm4j.vcs.api.workingcopy.IVCSRepositoryWorkspace;
 import org.scm4j.vcs.api.workingcopy.IVCSWorkspace;
-import org.tmatesoft.svn.core.*;
+import org.tmatesoft.svn.core.ISVNLogEntryHandler;
+import org.tmatesoft.svn.core.SVNCommitInfo;
+import org.tmatesoft.svn.core.SVNDepth;
+import org.tmatesoft.svn.core.SVNDirEntry;
+import org.tmatesoft.svn.core.SVNException;
+import org.tmatesoft.svn.core.SVNLogEntry;
+import org.tmatesoft.svn.core.SVNLogEntryPath;
+import org.tmatesoft.svn.core.SVNNodeKind;
+import org.tmatesoft.svn.core.SVNProperties;
+import org.tmatesoft.svn.core.SVNURL;
 import org.tmatesoft.svn.core.auth.BasicAuthenticationManager;
 import org.tmatesoft.svn.core.auth.SVNAuthentication;
 import org.tmatesoft.svn.core.auth.SVNPasswordAuthentication;
 import org.tmatesoft.svn.core.internal.wc.DefaultSVNOptions;
 import org.tmatesoft.svn.core.io.SVNRepository;
 import org.tmatesoft.svn.core.io.SVNRepositoryFactory;
-import org.tmatesoft.svn.core.wc.*;
-import org.tmatesoft.svn.core.wc2.*;
-
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileWriter;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
+import org.tmatesoft.svn.core.wc.ISVNConflictHandler;
+import org.tmatesoft.svn.core.wc.ISVNOptions;
+import org.tmatesoft.svn.core.wc.SVNClientManager;
+import org.tmatesoft.svn.core.wc.SVNConflictChoice;
+import org.tmatesoft.svn.core.wc.SVNConflictDescription;
+import org.tmatesoft.svn.core.wc.SVNConflictResult;
+import org.tmatesoft.svn.core.wc.SVNCopyClient;
+import org.tmatesoft.svn.core.wc.SVNCopySource;
+import org.tmatesoft.svn.core.wc.SVNDiffClient;
+import org.tmatesoft.svn.core.wc.SVNRevision;
+import org.tmatesoft.svn.core.wc.SVNRevisionRange;
+import org.tmatesoft.svn.core.wc.SVNStatusType;
+import org.tmatesoft.svn.core.wc.SVNUpdateClient;
+import org.tmatesoft.svn.core.wc.SVNWCClient;
+import org.tmatesoft.svn.core.wc.SVNWCUtil;
+import org.tmatesoft.svn.core.wc2.ISvnObjectReceiver;
+import org.tmatesoft.svn.core.wc2.SvnDiff;
+import org.tmatesoft.svn.core.wc2.SvnDiffStatus;
+import org.tmatesoft.svn.core.wc2.SvnDiffSummarize;
+import org.tmatesoft.svn.core.wc2.SvnOperationFactory;
+import org.tmatesoft.svn.core.wc2.SvnTarget;
 
 public class SVNVCS implements IVCS {
 	private static final int SVN_PATH_IS_NOT_WORKING_COPY_ERROR_CODE = 155007;
@@ -243,12 +283,12 @@ public class SVNVCS implements IVCS {
 
 
 	@Override
-	public String getFileContent(String branchName, String filePath, String encoding) {
+	public String getFileContent(String branchName, String filePath, String revision) {
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		try {
 			repository.getFile(new File(getBranchName(branchName), filePath).getPath().replace("\\", "/"),
-					-1, new SVNProperties(), baos);
-			return baos.toString(encoding);
+					revision == null? -1 : Long.parseLong(revision), new SVNProperties(), baos);
+			return baos.toString(StandardCharsets.UTF_8.name());
 		} catch (SVNException e) {
 			if (e.getErrorMessage().getErrorCode().getCode() == SVN_FILE_NOT_FOUND_ERROR_CODE) {
 				throw new EVCSFileNotFound(e);
@@ -261,11 +301,6 @@ public class SVNVCS implements IVCS {
 
 	private String getBranchName(String branchName) {
 		return branchName == null ? MASTER_PATH : BRANCHES_PATH + branchName;
-	}
-
-	@Override
-	public String getFileContent(String branchName, String filePath) {
-		return getFileContent(branchName, filePath, StandardCharsets.UTF_8.name());
 	}
 
 	@Override
@@ -684,31 +719,6 @@ public class SVNVCS implements IVCS {
 	}
 
 	@Override
-	public VCSTag getLastTag() {
-		try {
-			SVNLogEntry entry = revToSVNEntry(TAGS_PATH, -1L);
-			
-			Long copyFromRevision = -1L;
-			for (String s : entry.getChangedPaths().keySet()) {
-				SVNLogEntryPath entryPath = entry.getChangedPaths().get(s);
-				copyFromRevision = entryPath.getCopyRevision();
-			}
-			
-			SVNLogEntry copyFromEntry = revToSVNEntry("", copyFromRevision);
-			String tagName = "";
-			for (String name : revToSVNEntry(TAGS_PATH, -1L).getChangedPaths().keySet()) {
-				tagName = name.replace("/" + TAGS_PATH, "") ;
-			}
-			
-			return new VCSTag(tagName, entry.getMessage(), entry.getAuthor(), svnLogEntryToVCSCommit(copyFromEntry));
-		} catch (SVNException e) {
-			throw new EVCSException(e);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		}
-	}
-
-	@Override
 	public void removeTag(String tagName) {
 		try {
 			getBranchUrl(null); // for test exceptions throwing only 
@@ -733,52 +743,10 @@ public class SVNVCS implements IVCS {
 		}
 	}
 
-	@Override
-	public Boolean isRevisionTagged(String revision) {
-		List<String> entries = new ArrayList<>();
-		try {
-			listEntries(entries, TAGS_PATH, "");
-			SVNTagBaseCommit handler;
-			for (String entryStr : entries) {
-				handler = new SVNTagBaseCommit();
-				
-				repository.log(new String[] { entryStr }, -1 /* start from head descending */,
-						0, true, true, -1, handler);
-				
-				SVNDirEntry copyFromEntry = repository.info("", handler.copyFromRevision);
-				if (copyFromEntry.getRevision() == Long.parseLong(revision)) {
-					return true;
-				}
-			}
-			return false;
-		} catch (SVNException e) {
-			throw new EVCSException(e);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		}
-	}
 
 	@Override
-	public VCSTag getTagByName(String tagName) {
-		try {
-			if (repository.info(TAGS_PATH + tagName, -1L) == null) {
-				return null;
-			}
-			SVNLogEntry entry = revToSVNEntry(TAGS_PATH + tagName, -1L);
-
-			Long copyFromRevision = -1L;
-			for (String s : entry.getChangedPaths().keySet()) {
-				SVNLogEntryPath entryPath = entry.getChangedPaths().get(s);
-				copyFromRevision = entryPath.getCopyRevision();
-			}
-
-			SVNLogEntry copyFromEntry = revToSVNEntry("", copyFromRevision);
-
-			return new VCSTag(tagName, entry.getMessage(), entry.getAuthor(), svnLogEntryToVCSCommit(copyFromEntry));
-		} catch (SVNException e) {
-			throw new EVCSException(e);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		}
+	public List<VCSTag> getTagsOnRevision(String revision) {
+		// TODO Auto-generated method stub
+		return null;
 	}
 }

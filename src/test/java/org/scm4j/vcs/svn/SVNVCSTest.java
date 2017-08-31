@@ -433,23 +433,4 @@ public class SVNVCSTest extends VCSAbstractTest {
 		doReturn(SVNNodeKind.NONE).when(mockedRepo).checkPath(anyString(), anyLong());
 		svn.listEntries(null, null, null); // expecting no NPE 
 	}
-
-	@Test
-	public void testGetTagByNameExceptions() throws Exception {
-		doThrow(testSVNException).when(svn).revToSVNEntry(anyString(), anyLong());
-		try {
-			vcs.getTagByName("");
-			fail();
-		} catch (EVCSException e) {
-			checkEVCSException(e);
-		}
-
-		doThrow(testCommonException).when(svn).revToSVNEntry(anyString(), anyLong());
-		try {
-			vcs.getTagByName("");
-			fail();
-		} catch (RuntimeException e) {
-			checkCommonException(e);
-		}
-	}
 }
