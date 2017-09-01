@@ -150,11 +150,10 @@ public class SVNVCS implements IVCS {
 	
 	public void createBranch(SVNURL fromUrl, SVNURL toUrl, String commitMessage) {
 		try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
-			checkout(fromUrl, wc.getFolder(), null);
+			//checkout(fromUrl, wc.getFolder(), null);
 
 			SVNCopyClient copyClient = new SVNCopyClient(authManager, options);
-			SVNCopySource copySource = new SVNCopySource(SVNRevision.WORKING, SVNRevision.WORKING,
-					wc.getFolder());
+			SVNCopySource copySource = new SVNCopySource(SVNRevision.HEAD, SVNRevision.HEAD, fromUrl);
 			copySource.setCopyContents(false);
 
 			copyClient.doCopy(new SVNCopySource[] { copySource }, toUrl,
@@ -450,10 +449,13 @@ public class SVNVCS implements IVCS {
 	@Override
 	public Set<String> getBranches(String path) {
 		try {
-			List<String> entries = new ArrayList<>();
-			listEntries(entries, SVNVCS.BRANCHES_PATH, path == null ? "" : path);
+			List<String> entries = listEntries(SVNVCS.BRANCHES_PATH, path == null ? "" : path);
 			Set<String> res = new HashSet<>(entries);
-			addTrunkIfExists(res);
+			if (repository.checkPath(MASTER_PATH, -1) == SVNNodeKind.DIR) {
+				if (path == null || MASTER_PATH.startsWith(path) ) {
+					res.add(MASTER_PATH.replace("/", ""));
+				}
+			}
 			return res;
 		} catch (SVNException e) {
 			throw new EVCSException(e);
@@ -462,20 +464,10 @@ public class SVNVCS implements IVCS {
 		}
 	}
 	
-	protected void addTrunkIfExists(Set<String> res) {
-		try {
-			if (repository.checkPath(MASTER_PATH, -1) == SVNNodeKind.DIR) {
-				res.add(MASTER_PATH.replace("/", ""));
-			}
-		} catch (SVNException e) {
-			throw new EVCSException(e);
-		}
-	}
-
-	protected void listEntries(List<String> entries, String path, String subdir) throws Exception {
-		
+	protected List<String> listEntries(String path, String subdir) throws Exception {
+		List<String> res = new ArrayList<>();
 		if (repository.checkPath(path + subdir ,  -1) == SVNNodeKind.NONE) {
-			return;
+			return res;
 		}
 		@SuppressWarnings("unchecked")
 		Collection<SVNDirEntry> subEntries = repository.getDir(path + subdir, -1, null, (Collection<SVNDirEntry>) null);
@@ -494,10 +486,11 @@ public class SVNVCS implements IVCS {
 		});
 		for (SVNDirEntry entry : list) {
 			if (entry.getKind() == SVNNodeKind.DIR) {
-				entries.add(((path.equals(SVNVCS.BRANCHES_PATH) ? "" : path) + subdir + entry.getName())
+				res.add(((path.equals(SVNVCS.BRANCHES_PATH) ? "" : path) + subdir + entry.getName())
 						.replace(SVNVCS.BRANCHES_PATH, ""));
 			}
 		}
+		return res;
 	}
 	
 	@Override
@@ -678,7 +671,11 @@ public class SVNVCS implements IVCS {
 	
 	private class SVNTagBaseCommit implements ISVNLogEntryHandler {
 		
-		public Long copyFromRevision;
+		private Long copyFromRevision;
+		
+		public Long getCopyFromRevision() {
+			return copyFromRevision;
+		}
 
 		@Override
 		public void handleLogEntry(SVNLogEntry logEntry) throws SVNException {
@@ -691,9 +688,8 @@ public class SVNVCS implements IVCS {
 	
 	@Override
 	public List<VCSTag> getTags() {
-		List<String> entries = new ArrayList<>();
 		try {
-			listEntries(entries, TAGS_PATH, "");
+			List<String> entries = listEntries(TAGS_PATH, "");
 			List<VCSTag> res = new ArrayList<>();
 			SVNTagBaseCommit handler;
 			for (String entryStr : entries) {
@@ -705,7 +701,7 @@ public class SVNVCS implements IVCS {
 				repository.log(new String[] { entryStr }, -1 /* start from head descending */,
 						0, true, true, -1, handler);
 				
-				SVNDirEntry copyFromEntry = repository.info("", handler.copyFromRevision);
+				SVNDirEntry copyFromEntry = repository.info("", handler.getCopyFromRevision());
 				
 				res.add(new VCSTag(entryStr.replace(TAGS_PATH, ""), entry.getMessage(), entry.getAuthor(), new VCSCommit(Long.toString(copyFromEntry.getRevision()),
 						copyFromEntry.getCommitMessage(), copyFromEntry.getAuthor())));
@@ -746,7 +742,30 @@ public class SVNVCS implements IVCS {
 
 	@Override
 	public List<VCSTag> getTagsOnRevision(String revision) {
-		// TODO Auto-generated method stub
-		return null;
+		try {
+			List<String> tagEntries = listEntries(TAGS_PATH, "");
+			List<VCSTag> res = new ArrayList<>();
+			SVNTagBaseCommit handler;
+			for (String tagEntryStr : tagEntries) {
+				
+				SVNLogEntry entry = revToSVNEntry(tagEntryStr, -1L);
+
+				handler = new SVNTagBaseCommit();
+				
+				repository.log(new String[] { tagEntryStr }, -1 /* start from head descending */,
+						0, true, true, -1, handler);
+				
+				if (handler.getCopyFromRevision().equals(Long.parseLong(revision))) {
+					SVNDirEntry copyFromEntry = repository.info("", handler.getCopyFromRevision());
+					res.add(new VCSTag(tagEntryStr.replace(TAGS_PATH, ""), entry.getMessage(), entry.getAuthor(), new VCSCommit(Long.toString(copyFromEntry.getRevision()),
+							copyFromEntry.getCommitMessage(), copyFromEntry.getAuthor())));
+				}
+			}
+			return res;
+		} catch (SVNException e) {
+			throw new EVCSException(e);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
 	}
 }

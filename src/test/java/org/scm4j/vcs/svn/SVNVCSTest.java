@@ -1,5 +1,34 @@
 package org.scm4j.vcs.svn;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyBoolean;
+import static org.mockito.Matchers.anyLong;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Matchers.isNull;
+import static org.mockito.Mockito.doCallRealMethod;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+
 import org.junit.After;
 import org.junit.Test;
 import org.mockito.Matchers;
@@ -10,33 +39,25 @@ import org.scm4j.vcs.api.WalkDirection;
 import org.scm4j.vcs.api.abstracttest.VCSAbstractTest;
 import org.scm4j.vcs.api.exceptions.EVCSException;
 import org.scm4j.vcs.api.workingcopy.IVCSRepositoryWorkspace;
-import org.tmatesoft.svn.core.*;
+import org.tmatesoft.svn.core.ISVNLogEntryHandler;
+import org.tmatesoft.svn.core.SVNDepth;
+import org.tmatesoft.svn.core.SVNDirEntry;
+import org.tmatesoft.svn.core.SVNErrorCode;
+import org.tmatesoft.svn.core.SVNErrorMessage;
+import org.tmatesoft.svn.core.SVNException;
+import org.tmatesoft.svn.core.SVNNodeKind;
+import org.tmatesoft.svn.core.SVNProperties;
+import org.tmatesoft.svn.core.SVNURL;
 import org.tmatesoft.svn.core.auth.ISVNProxyManager;
 import org.tmatesoft.svn.core.auth.SVNAuthentication;
 import org.tmatesoft.svn.core.auth.SVNPasswordAuthentication;
 import org.tmatesoft.svn.core.internal.wc.DefaultSVNOptions;
 import org.tmatesoft.svn.core.io.SVNRepository;
-import org.tmatesoft.svn.core.wc.*;
-
-import java.io.File;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-
-import static org.junit.Assert.*;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyBoolean;
-import static org.mockito.Matchers.anyLong;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Matchers.isNull;
-import static org.mockito.Mockito.*;
+import org.tmatesoft.svn.core.wc.SVNClientManager;
+import org.tmatesoft.svn.core.wc.SVNCommitClient;
+import org.tmatesoft.svn.core.wc.SVNStatusClient;
+import org.tmatesoft.svn.core.wc.SVNStatusType;
+import org.tmatesoft.svn.core.wc.SVNWCClient;
 
 public class SVNVCSTest extends VCSAbstractTest {
 
@@ -154,7 +175,7 @@ public class SVNVCSTest extends VCSAbstractTest {
 		reset(svn);
 		doThrow(testException).when(svn).checkout(any(SVNURL.class), any(File.class), (String) isNull());
 		doThrow(testException).when(svn).getBranchUrl(null);
-		doThrow(testException).when(svn).listEntries(Matchers.<List<String>>any(), anyString(), anyString());
+		doThrow(testException).when(svn).listEntries(anyString(), anyString());
 		doThrow(testException).when(svn).getBranchFirstCommit(null);
 		doThrow(testException).when(svn).revToSVNEntry(anyString(), any(Long.class));
 		try {
@@ -186,7 +207,7 @@ public class SVNVCSTest extends VCSAbstractTest {
 		} catch (WantedButNotInvoked e1) {
 		}
 		try {
-			verify(svn).listEntries(Matchers.<List<String>>any(), anyString(), anyString());
+			verify(svn).listEntries(anyString(), anyString());
 			return true;
 		} catch (WantedButNotInvoked e1) {
 		}
@@ -311,20 +332,6 @@ public class SVNVCSTest extends VCSAbstractTest {
 		assertTrue(mockedLWC.getCorrupted());
 	}
 
-
-	@Test
-	public void testAddTrunkIfExistsExceptions() throws Exception {
-		SVNRepository mockedRepo = spy(svn.getSVNRepository());
-		svn.setSVNRepository(mockedRepo);
-		doThrow(testSVNException).when(mockedRepo).checkPath(anyString(),anyLong());
-		try {
-			svn.addTrunkIfExists(null);
-			fail();
-		} catch (EVCSException e) {
-			checkEVCSException(e);
-		}
-	}
-
 	private void checkEVCSException(EVCSException e) {
 		assertTrue(e.getCause() instanceof SVNException);
 		assertTrue(e.getCause().getMessage().contains(testSVNException.getMessage()));
@@ -394,14 +401,12 @@ public class SVNVCSTest extends VCSAbstractTest {
 		doReturn(Arrays.asList(entry1, entry2)).when(mockedRepo).getDir(anyString(), anyLong(), any(SVNProperties.class),
 				Matchers.<Collection<SVNDirEntry>>any());
 
-		List<String> entries = new ArrayList<>();
-		svn.listEntries(entries, "", "");
+		List<String> entries = svn.listEntries("", "");
 		assertEquals(entries.get(0), entry1.getName());
 		assertEquals(entries.get(1), entry2.getName());
 		doReturn(Arrays.asList(entry1, entry1)).when(mockedRepo).getDir(anyString(), anyLong(), any(SVNProperties.class),
 				Matchers.<Collection<SVNDirEntry>>any());
-		entries = new ArrayList<>();
-		svn.listEntries(entries, "", "");
+		entries = svn.listEntries("", "");
 		assertEquals(entries.get(0), entry1.getName());
 		assertEquals(entries.get(1), entry1.getName());
 	}
@@ -431,6 +436,6 @@ public class SVNVCSTest extends VCSAbstractTest {
 		SVNRepository mockedRepo = spy(svn.getSVNRepository());
 		svn.setSVNRepository(mockedRepo);
 		doReturn(SVNNodeKind.NONE).when(mockedRepo).checkPath(anyString(), anyLong());
-		svn.listEntries(null, null, null); // expecting no NPE 
+		svn.listEntries(null, null); // expecting no NPE 
 	}
 }
