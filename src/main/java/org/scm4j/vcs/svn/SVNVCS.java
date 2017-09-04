@@ -150,9 +150,10 @@ public class SVNVCS implements IVCS {
 	
 	public void createBranch(SVNURL fromUrl, SVNURL toUrl, String commitMessage) {
 		try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
-			//checkout(fromUrl, wc.getFolder(), null);
 
-			SVNCopyClient copyClient = new SVNCopyClient(authManager, options);
+			getBranchUrl("test"); // for exceptions rethrowing test only
+			
+			SVNCopyClient copyClient = clientManager.getCopyClient();
 			SVNCopySource copySource = new SVNCopySource(SVNRevision.HEAD, SVNRevision.HEAD, fromUrl);
 			copySource.setCopyContents(false);
 

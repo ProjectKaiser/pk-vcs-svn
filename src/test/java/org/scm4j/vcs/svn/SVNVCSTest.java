@@ -245,14 +245,14 @@ public class SVNVCSTest extends VCSAbstractTest {
 
 	@Test
 	public void testCreateBranchExceptions() throws Exception {
-		doThrow(testCommonException).when(svn).checkout(any(SVNURL.class), any(File.class), (String) isNull());
+		doThrow(testCommonException).when(svn).getBranchUrl("test");
 		try {
 			vcs.createBranch("", "", "");
 			fail();
 		} catch (RuntimeException e) {
 			checkCommonException(e);
 		}
-		doThrow(testSVNException).when(svn).checkout(any(SVNURL.class), any(File.class), (String) isNull());
+		doThrow(testSVNException).when(svn).getBranchUrl("test");
 		try {
 			vcs.createBranch("", "", "");
 			fail();
