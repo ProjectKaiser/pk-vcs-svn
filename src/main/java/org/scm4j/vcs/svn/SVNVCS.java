@@ -642,7 +642,7 @@ public class SVNVCS implements IVCS {
 	@Override
 	public VCSTag createTag(String branchName, String tagName, String tagMessage, String revisionToTag) throws EVCSTagExists {
 		try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
-			//checkout(getBranchUrl(branchName), wc.getFolder(), null);
+			checkout(getBranchUrl(branchName), wc.getFolder(), null);
 			SVNURL srcURL = getBranchUrl(branchName); 
 			SVNURL dstURL = SVNURL.parseURIEncoded(repoUrl + TAGS_PATH + tagName);
 			SVNCopySource copySource = revisionToTag == null ?
