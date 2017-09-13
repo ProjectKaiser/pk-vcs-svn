@@ -3,7 +3,6 @@ package org.scm4j.vcs.svn;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileWriter;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -61,12 +60,10 @@ import org.tmatesoft.svn.core.wc.SVNUpdateClient;
 import org.tmatesoft.svn.core.wc.SVNWCClient;
 import org.tmatesoft.svn.core.wc.SVNWCUtil;
 import org.tmatesoft.svn.core.wc2.ISvnObjectReceiver;
-import org.tmatesoft.svn.core.wc2.SvnCopySource;
 import org.tmatesoft.svn.core.wc2.SvnDiff;
 import org.tmatesoft.svn.core.wc2.SvnDiffStatus;
 import org.tmatesoft.svn.core.wc2.SvnDiffSummarize;
 import org.tmatesoft.svn.core.wc2.SvnOperationFactory;
-import org.tmatesoft.svn.core.wc2.SvnRemoteCopy;
 import org.tmatesoft.svn.core.wc2.SvnTarget;
 
 public class SVNVCS implements IVCS {
@@ -463,7 +460,7 @@ public class SVNVCS implements IVCS {
 			}
 			Set<String> res = new HashSet<>();
 			for (String str : tempRes) {
-				res.add(StringUtils.removeStart(StringUtils.removeStart(str, SVNVCS.BRANCHES_PATH), path));
+				res.add(StringUtils.removeStart(str, SVNVCS.BRANCHES_PATH));
 			}
 			return res;
 		} catch (SVNException e) {
@@ -642,29 +639,19 @@ public class SVNVCS implements IVCS {
 	@Override
 	public VCSTag createTag(String branchName, String tagName, String tagMessage, String revisionToTag) throws EVCSTagExists {
 		try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
-			checkout(getBranchUrl(branchName), wc.getFolder(), null);
 			SVNURL srcURL = getBranchUrl(branchName); 
 			SVNURL dstURL = SVNURL.parseURIEncoded(repoUrl + TAGS_PATH + tagName);
+			SVNLogEntry copyFromEntry = revToSVNEntry(getBranchName(branchName),
+					revisionToTag == null ? SVNRevision.HEAD.getNumber() : Long.parseLong(revisionToTag));
 			SVNCopySource copySource = revisionToTag == null ?
-					new SVNCopySource(SVNRevision.HEAD, SVNRevision.HEAD, srcURL) :
+					new SVNCopySource(SVNRevision.HEAD, SVNRevision.create(copyFromEntry.getRevision()), srcURL) :
 					new SVNCopySource(SVNRevision.parse(revisionToTag), SVNRevision.parse(revisionToTag), srcURL);
 
-			SvnRemoteCopy tagOperation = new SvnOperationFactory().createRemoteCopy();
-			SvnCopySource source = SvnCopySource.create(SvnTarget.fromURL(srcURL), SVNRevision.UNDEFINED);
-	        tagOperation.addCopySource(source);
-	        tagOperation.setSingleTarget(SvnTarget.fromURL(dstURL));
-	        tagOperation.setFailWhenDstExists(true);
-	        tagOperation.setCommitMessage(tagMessage);
-	        tagOperation.run();
-//	        
-//			clientManager.getCopyClient().doCopy(new SVNCopySource[] {copySource}, dstURL, 
-//			        false, false, true, tagMessage, null);
+			clientManager.getCopyClient().doCopy(new SVNCopySource[] {copySource}, dstURL, 
+			        false, false, true, tagMessage, null);
 
 			SVNDirEntry entry = repository.info(TAGS_PATH + tagName, -1);
 
-			SVNLogEntry copyFromEntry = revToSVNEntry(getBranchName(branchName),
-					revisionToTag == null ? SVNRevision.BASE.getNumber() : Long.parseLong(revisionToTag));
-			
 			return new VCSTag(tagName, tagMessage, entry.getAuthor(), svnLogEntryToVCSCommit(copyFromEntry));
 		} catch (SVNException e) {
 			if (e.getErrorMessage().getErrorCode().getCode() == SVN_ITEM_EXISTS_ERROR_CODE) {
