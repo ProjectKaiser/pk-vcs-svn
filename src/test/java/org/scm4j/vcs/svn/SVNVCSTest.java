@@ -435,7 +435,7 @@ public class SVNVCSTest extends VCSAbstractTest {
 	public void testListEntriesNone() throws Exception {
 		SVNRepository mockedRepo = spy(svn.getSVNRepository());
 		svn.setSVNRepository(mockedRepo);
-		doReturn(SVNNodeKind.NONE).when(mockedRepo).checkPath(anyString(), anyLong());
+		doReturn(SVNNodeKind.NONE).when(mockedRepo).checkPath((String) isNull(), anyLong());
 		svn.listEntries(null, null); // expecting no NPE 
 	}
 }
