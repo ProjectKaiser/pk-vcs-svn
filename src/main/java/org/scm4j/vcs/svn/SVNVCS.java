@@ -9,6 +9,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -451,7 +452,7 @@ public class SVNVCS implements IVCS {
 	@Override
 	public Set<String> getBranches(String path) {
 		try {
-			List<String> entries = listEntries(SVNVCS.BRANCHES_PATH, path == null ? "" : path);
+			List<String> entries = listEntries(SVNVCS.BRANCHES_PATH + (path == null ? "" : path));
 			Set<String> tempRes = new HashSet<>(entries);
 			if (repository.checkPath(MASTER_PATH, -1) == SVNNodeKind.DIR) {
 				if (path == null || MASTER_PATH.startsWith(path) ) {
@@ -470,15 +471,15 @@ public class SVNVCS implements IVCS {
 		}
 	}
 	
-	protected List<String> listEntries(String path, String subdirStartsWith) throws Exception {
+	protected List<String> listEntries(String path) throws Exception {
 		List<String> res = new ArrayList<>();
-		if (repository.checkPath(path ,  -1) == SVNNodeKind.NONE) {
+		if (repository.checkPath(path , -1) == SVNNodeKind.NONE) {
 			return res;
 		}
 		@SuppressWarnings("unchecked")
-		Collection<SVNDirEntry> subEntries = repository.getDir(path, -1, null, (Collection<SVNDirEntry>) null);
-		List<SVNDirEntry> list = new ArrayList<>(subEntries);
-		Collections.sort(list, new Comparator<SVNDirEntry>() {
+		Collection<SVNDirEntry> entries = repository.getDir(path, -1 , null , (Collection<SVNDirEntry>) null);
+		List<SVNDirEntry> entriesList = new ArrayList<>(entries);
+		Collections.sort(entriesList, new Comparator<SVNDirEntry>() {
 			@Override
 			public int compare(SVNDirEntry o1, SVNDirEntry o2) {
 				if (o1.getRevision() < o2.getRevision()) {
@@ -490,11 +491,16 @@ public class SVNVCS implements IVCS {
 				return 0;
 			}
 		});
-		for (SVNDirEntry entry : list) {
-			if (entry.getKind() == SVNNodeKind.DIR && entry.getName().startsWith(subdirStartsWith)) {
-				res.add(path + entry.getName());
+		Iterator<SVNDirEntry> entriesIterator = entriesList.iterator();
+		while (entriesIterator.hasNext()) {
+			SVNDirEntry entry = (SVNDirEntry) entriesIterator.next();
+			
+			if (entry.getKind() == SVNNodeKind.DIR) {
+				res.add((path.isEmpty() ? "" : StringUtils.appendIfMissing(path, "/")) + entry.getName());
+				res.addAll(listEntries((path.equals("")) ? entry.getName( ) : path + entry.getName()));
 			}
 		}
+		
 		return res;
 	}
 	
@@ -693,7 +699,7 @@ public class SVNVCS implements IVCS {
 	@Override
 	public List<VCSTag> getTags() {
 		try {
-			List<String> entries = listEntries(TAGS_PATH, "");
+			List<String> entries = listEntries(TAGS_PATH);
 			
 			List<VCSTag> res = new ArrayList<>();
 			SVNTagBaseCommit handler;
@@ -748,8 +754,19 @@ public class SVNVCS implements IVCS {
 	@Override
 	public List<VCSTag> getTagsOnRevision(String revision) {
 		try {
-			List<String> tagEntries = listEntries(TAGS_PATH, "");
 			List<VCSTag> res = new ArrayList<>();
+			if (repository.checkPath(TAGS_PATH , -1) == SVNNodeKind.NONE) {
+				return res;
+			}
+			List<String> tagEntries = new ArrayList<>();
+			@SuppressWarnings("unchecked")
+			Collection<SVNDirEntry> entries = repository.getDir(TAGS_PATH, -1 , null , (Collection<SVNDirEntry>) null);
+			for (SVNDirEntry entry : entries) {
+				if (entry.getKind() == SVNNodeKind.DIR) {
+					tagEntries.add(TAGS_PATH + entry.getName());
+				}
+			}
+			
 			SVNTagBaseCommit handler;
 			for (String tagEntryStr : tagEntries) {
 				

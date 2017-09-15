@@ -175,7 +175,7 @@ public class SVNVCSTest extends VCSAbstractTest {
 		reset(svn);
 		doThrow(testException).when(svn).checkout(any(SVNURL.class), any(File.class), (String) isNull());
 		doThrow(testException).when(svn).getBranchUrl(null);
-		doThrow(testException).when(svn).listEntries(anyString(), anyString());
+		doThrow(testException).when(svn).listEntries(anyString());
 		doThrow(testException).when(svn).getBranchFirstCommit(null);
 		doThrow(testException).when(svn).revToSVNEntry(anyString(), any(Long.class));
 		try {
@@ -207,7 +207,7 @@ public class SVNVCSTest extends VCSAbstractTest {
 		} catch (WantedButNotInvoked e1) {
 		}
 		try {
-			verify(svn).listEntries(anyString(), anyString());
+			verify(svn).listEntries(anyString());
 			return true;
 		} catch (WantedButNotInvoked e1) {
 		}
@@ -401,12 +401,12 @@ public class SVNVCSTest extends VCSAbstractTest {
 		doReturn(Arrays.asList(entry1, entry2)).when(mockedRepo).getDir(anyString(), anyLong(), any(SVNProperties.class),
 				Matchers.<Collection<SVNDirEntry>>any());
 
-		List<String> entries = svn.listEntries("", "");
+		List<String> entries = svn.listEntries("");
 		assertEquals(entries.get(0), entry1.getName());
 		assertEquals(entries.get(1), entry2.getName());
 		doReturn(Arrays.asList(entry1, entry1)).when(mockedRepo).getDir(anyString(), anyLong(), any(SVNProperties.class),
 				Matchers.<Collection<SVNDirEntry>>any());
-		entries = svn.listEntries("", "");
+		entries = svn.listEntries("");
 		assertEquals(entries.get(0), entry1.getName());
 		assertEquals(entries.get(1), entry1.getName());
 	}
@@ -436,6 +436,36 @@ public class SVNVCSTest extends VCSAbstractTest {
 		SVNRepository mockedRepo = spy(svn.getSVNRepository());
 		svn.setSVNRepository(mockedRepo);
 		doReturn(SVNNodeKind.NONE).when(mockedRepo).checkPath((String) isNull(), anyLong());
-		svn.listEntries(null, null); // expecting no NPE 
+		svn.listEntries(null); // expecting no NPE 
+	}
+	
+	@Test
+	public void testGetTagsOnRevisionNoTagsDir() throws SVNException {
+		svn.getClientManager()
+				.getCommitClient()
+				.doDelete(new SVNURL[] { SVNURL.parseURIEncoded(svn.getRepoUrl() + "/" + SVNVCS.TAGS_PATH)}, "tags/ deleted");
+		assertTrue(vcs.getTagsOnRevision("0").isEmpty());
+	}
+	
+	@Test
+	public void testGetTagsOnRevisionExceptions() throws Exception {
+		SVNRepository mockedRepo = spy(svn.getSVNRepository());
+		svn.setSVNRepository(mockedRepo);
+		vcs.createTag(null, TAG_NAME_1, TAG_MESSAGE_1, null);
+		doThrow(testCommonException).when(svn).revToSVNEntry(anyString(), anyLong());
+		try {
+			vcs.getTagsOnRevision("");
+			fail();
+		} catch (RuntimeException e) {
+			checkCommonException(e);
+		}
+		
+		doThrow(testSVNException).when(mockedRepo).checkPath(anyString(), anyLong());
+		try {
+			vcs.getTagsOnRevision("");
+			fail();
+		} catch (EVCSException e) {
+			checkEVCSException(e);
+		}
 	}
 }
