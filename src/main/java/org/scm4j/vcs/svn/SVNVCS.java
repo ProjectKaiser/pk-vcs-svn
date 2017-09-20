@@ -250,7 +250,7 @@ public class SVNVCS implements IVCS {
 			return baos.toString(StandardCharsets.UTF_8.name());
 		} catch (SVNException e) {
 			if (e.getErrorMessage().getErrorCode().getCode() == SVN_FILE_NOT_FOUND_ERROR_CODE) {
-				throw new EVCSFileNotFound(e);
+				throw new EVCSFileNotFound(getRepoUrl(), getBranchName(branchName), filePath, revision);
 			}
 			throw new EVCSException(e);
 		} catch (Exception e) {
