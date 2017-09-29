@@ -4,6 +4,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.scm4j.vcs.api.*;
 import org.scm4j.vcs.api.exceptions.EVCSBranchExists;
+import org.scm4j.vcs.api.exceptions.EVCSBranchNotFound;
 import org.scm4j.vcs.api.exceptions.EVCSException;
 import org.scm4j.vcs.api.exceptions.EVCSFileNotFound;
 import org.scm4j.vcs.api.exceptions.EVCSTagExists;
@@ -43,6 +44,7 @@ public class SVNVCS implements IVCS {
 	public static final String BRANCHES_PATH = "branches/";
 	public static final String TAGS_PATH = "tags/";
 	public static final String SVN_VCS_TYPE_STRING = "svn";
+	
 
 	public void setClientManager(SVNClientManager clientManager) {
 		this.clientManager = clientManager;
@@ -245,9 +247,14 @@ public class SVNVCS implements IVCS {
 	public String getFileContent(String branchName, String filePath, String revision) {
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		try {
+			if (repository.checkPath(getBranchName(branchName), -1L) == SVNNodeKind.NONE) {
+				throw new EVCSBranchNotFound(getRepoUrl(), getBranchName(branchName));
+			}
 			repository.getFile(new File(getBranchName(branchName), filePath).getPath().replace("\\", "/"),
 					(revision == null || revision.isEmpty()) ? -1 : Long.parseLong(revision), new SVNProperties(), baos);
 			return baos.toString(StandardCharsets.UTF_8.name());
+		} catch (EVCSBranchNotFound e) {
+			throw e;
 		} catch (SVNException e) {
 			if (e.getErrorMessage().getErrorCode().getCode() == SVN_FILE_NOT_FOUND_ERROR_CODE) {
 				throw new EVCSFileNotFound(getRepoUrl(), getBranchName(branchName), filePath, revision);
