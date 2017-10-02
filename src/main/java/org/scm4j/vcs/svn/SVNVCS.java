@@ -437,11 +437,21 @@ public class SVNVCS implements IVCS {
 	
 	protected List<String> listEntries(String path) throws Exception {
 		List<String> res = new ArrayList<>();
-		if (repository.checkPath(path , -1) == SVNNodeKind.NONE) {
+		if (path == null) {
 			return res;
 		}
+		path = path.trim();
+		String lastFolder;
+		String folderPrefix;
+		int lastSlashIndex = path.lastIndexOf("/");
+		lastFolder = lastSlashIndex > 0 ? path.substring(0, lastSlashIndex) : path;
+		folderPrefix =  lastSlashIndex > 0 ? path.substring(lastSlashIndex + 1) : "";
+		if (repository.checkPath(lastFolder , -1) == SVNNodeKind.NONE) {
+			return res;
+		}
+
 		@SuppressWarnings("unchecked")
-		Collection<SVNDirEntry> entries = repository.getDir(path, -1 , null , (Collection<SVNDirEntry>) null);
+		Collection<SVNDirEntry> entries = repository.getDir(lastFolder, -1 , null , (Collection<SVNDirEntry>) null);
 		List<SVNDirEntry> entriesList = new ArrayList<>(entries);
 		Collections.sort(entriesList, new Comparator<SVNDirEntry>() {
 			@Override
@@ -456,9 +466,8 @@ public class SVNVCS implements IVCS {
 			}
 		});
 		for (SVNDirEntry entry : entriesList) {
-			if (entry.getKind() == SVNNodeKind.DIR) {
-				res.add((path.isEmpty() ? "" : StringUtils.appendIfMissing(path, "/")) + entry.getName());
-				res.addAll(listEntries((path.equals("")) ? entry.getName() : path + entry.getName()));
+			if (entry.getKind() == SVNNodeKind.DIR && entry.getName().startsWith(folderPrefix)) {
+				res.add((path.isEmpty() ? "" : StringUtils.appendIfMissing(lastFolder, "/")) + entry.getName());
 			}
 		}
 		

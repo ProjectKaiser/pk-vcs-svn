@@ -1,22 +1,22 @@
 package org.scm4j.vcs.svn;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyBoolean;
-import static org.mockito.Matchers.anyLong;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Matchers.isNull;
-import static org.mockito.Mockito.doCallRealMethod;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
+import org.junit.After;
+import org.junit.Test;
+import org.mockito.Matchers;
+import org.mockito.exceptions.verification.WantedButNotInvoked;
+import org.scm4j.vcs.api.IVCS;
+import org.scm4j.vcs.api.VCSChangeType;
+import org.scm4j.vcs.api.WalkDirection;
+import org.scm4j.vcs.api.abstracttest.VCSAbstractTest;
+import org.scm4j.vcs.api.exceptions.EVCSException;
+import org.scm4j.vcs.api.workingcopy.IVCSRepositoryWorkspace;
+import org.tmatesoft.svn.core.*;
+import org.tmatesoft.svn.core.auth.ISVNProxyManager;
+import org.tmatesoft.svn.core.auth.SVNAuthentication;
+import org.tmatesoft.svn.core.auth.SVNPasswordAuthentication;
+import org.tmatesoft.svn.core.internal.wc.DefaultSVNOptions;
+import org.tmatesoft.svn.core.io.SVNRepository;
+import org.tmatesoft.svn.core.wc.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -29,35 +29,13 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
-import org.junit.After;
-import org.junit.Test;
-import org.mockito.Matchers;
-import org.mockito.exceptions.verification.WantedButNotInvoked;
-import org.scm4j.vcs.api.IVCS;
-import org.scm4j.vcs.api.VCSChangeType;
-import org.scm4j.vcs.api.WalkDirection;
-import org.scm4j.vcs.api.abstracttest.VCSAbstractTest;
-import org.scm4j.vcs.api.exceptions.EVCSException;
-import org.scm4j.vcs.api.workingcopy.IVCSRepositoryWorkspace;
-import org.tmatesoft.svn.core.ISVNLogEntryHandler;
-import org.tmatesoft.svn.core.SVNDepth;
-import org.tmatesoft.svn.core.SVNDirEntry;
-import org.tmatesoft.svn.core.SVNErrorCode;
-import org.tmatesoft.svn.core.SVNErrorMessage;
-import org.tmatesoft.svn.core.SVNException;
-import org.tmatesoft.svn.core.SVNNodeKind;
-import org.tmatesoft.svn.core.SVNProperties;
-import org.tmatesoft.svn.core.SVNURL;
-import org.tmatesoft.svn.core.auth.ISVNProxyManager;
-import org.tmatesoft.svn.core.auth.SVNAuthentication;
-import org.tmatesoft.svn.core.auth.SVNPasswordAuthentication;
-import org.tmatesoft.svn.core.internal.wc.DefaultSVNOptions;
-import org.tmatesoft.svn.core.io.SVNRepository;
-import org.tmatesoft.svn.core.wc.SVNClientManager;
-import org.tmatesoft.svn.core.wc.SVNCommitClient;
-import org.tmatesoft.svn.core.wc.SVNStatusClient;
-import org.tmatesoft.svn.core.wc.SVNStatusType;
-import org.tmatesoft.svn.core.wc.SVNWCClient;
+import static org.junit.Assert.*;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyBoolean;
+import static org.mockito.Matchers.anyLong;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Matchers.isNull;
+import static org.mockito.Mockito.*;
 
 public class SVNVCSTest extends VCSAbstractTest {
 
@@ -435,8 +413,9 @@ public class SVNVCSTest extends VCSAbstractTest {
 	public void testListEntriesNone() throws Exception {
 		SVNRepository mockedRepo = spy(svn.getSVNRepository());
 		svn.setSVNRepository(mockedRepo);
-		doReturn(SVNNodeKind.NONE).when(mockedRepo).checkPath((String) isNull(), anyLong());
-		svn.listEntries(null); // expecting no NPE 
+		doReturn(SVNNodeKind.NONE).when(mockedRepo).checkPath(anyString(), anyLong());
+		assertTrue(svn.listEntries("").isEmpty());
+		assertTrue(svn.listEntries(null).isEmpty()); // expecting no NPE
 	}
 	
 	@Test
