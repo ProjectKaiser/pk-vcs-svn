@@ -467,7 +467,8 @@ public class SVNVCS implements IVCS {
 		});
 		for (SVNDirEntry entry : entriesList) {
 			if (entry.getKind() == SVNNodeKind.DIR && entry.getName().startsWith(folderPrefix)) {
-				res.add((path.isEmpty() ? "" : StringUtils.appendIfMissing(lastFolder, "/")) + entry.getName());
+				String branchName = (path.isEmpty() ? "" : StringUtils.appendIfMissing(lastFolder, "/")) + entry.getName();
+				res.add(branchName);
 			}
 		}
 		
