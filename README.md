@@ -13,11 +13,20 @@ Features:
 - File content getting and setting
 - File create and remove
 
+Use cases
+- VCS server hooks
+- Build machines
+  - checking in\out, tagging
+- Software project management systems
+  - Create own branches from GUI, browse commits, product versions management, etc
+- Product release automation
+  - automatic merging, forking, tagging, version bumping, etc
+  - Example: [scm4j-releaser](https://github.com/scm4j/scm4j-releaser)
+
+
 # Terms
 - Workspace Home
   - Local home folder of all folders used by vcs-related operations. See [scm4j-vcs-api](https://github.com/scm4j/scm4j-vcs-api) for details
-- Repository Workspace
-  - Local folder for LWC folders related to Repository of one type. See [scm4j-vcs-api](https://github.com/scm4j/scm4j-vcs-api) for details
 - Locked Working Copy, LWC
   - Local folder where vcs-related operations are executed. Provides thread- and process-safe repository of working folders. See [scm4j-vcs-api](https://github.com/scm4j/scm4j-vcs-api) for details
 - Test Repository
@@ -60,7 +69,7 @@ Features:
 - Or run `gradle test`
 
 # Limitations
-- According to IVCS description `IVCS.getBranches()` should return list of user-created branches. But a branch and a dir are the same for SVN. So `SVNVCS.getBranches()` returns set of first level folders of "Branches/" branch and "Trunk" branch. I.e.:
+- According to IVCS description `IVCS.getBranches()` should return list of user-created branches. But a branch and a dir are the same for SVN. So `SVNVCS.getBranches()` returns set of first-level folders of "Branches/" branch and "Trunk" branch. I.e.:
 	- Assume we have following directory structure:
 		- Branches/Br1/Folder/file.txt
 		- Branches/Br2/Folder/file.txt

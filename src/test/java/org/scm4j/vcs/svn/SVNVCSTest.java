@@ -65,11 +65,6 @@ public class SVNVCSTest extends VCSAbstractTest {
 	}
 
 	@Override
-	protected String getTestRepoUrl() {
-		return "file:///" + localVCSWorkspace.getHomeFolder().getPath().replace("\\", "/") + "/";
-	}
-
-	@Override
 	protected IVCS getVCS(IVCSRepositoryWorkspace mockedVCSRepo) {
 		// nulls as user and pwd because we using file repository, not server
 		svn = spy(new SVNVCS(mockedVCSRepo, null, null));
