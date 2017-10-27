@@ -642,6 +642,9 @@ public class SVNVCS implements IVCS {
 	
 	protected SVNLogEntry revToSVNEntry(String branchName, Long rev) throws Exception {
 		SVNDirEntry info = repository.info(branchName, rev);
+		if (info == null) {
+			return null;
+		}
 		@SuppressWarnings("unchecked")
 		Collection<SVNLogEntry> entries = repository.log(new String[] {branchName}, null, info.getRevision(), info.getRevision(), true, true);
 		if (entries != null) {
