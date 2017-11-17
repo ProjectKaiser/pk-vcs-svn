@@ -1,6 +1,7 @@
 package org.scm4j.vcs.svn;
 
 import org.junit.After;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.Matchers;
 import org.mockito.exceptions.verification.WantedButNotInvoked;
@@ -413,6 +414,7 @@ public class SVNVCSTest extends VCSAbstractTest {
 	}
 	
 	@Test
+	@Ignore
 	public void testListEntriesNone() throws Exception {
 		SVNRepository mockedRepo = spy(svn.getSVNRepository());
 		svn.setSVNRepository(mockedRepo);
