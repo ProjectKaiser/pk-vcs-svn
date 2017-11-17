@@ -350,15 +350,10 @@ public class SVNVCS implements IVCS {
 	}
 	
 	protected SVNLogEntry getDirFirstCommit(final String dir) throws SVNException {
-		final SVNLogEntry[] firstEntryHolder = new SVNLogEntry[1]; 
-		repository.log(new String[] { dir }, 0 /* start from first commit */,
-				-1 /* to the head commit */, true, true, 1 /* limit */, new ISVNLogEntryHandler() {
-			@Override
-			public void handleLogEntry(SVNLogEntry logEntry) throws SVNException {
-				firstEntryHolder[0] = logEntry;
-			}
-		});
-		return firstEntryHolder[0];
+		@SuppressWarnings("unchecked")
+		Collection<SVNLogEntry> entries = repository.log(new String[] { dir }, null, 0 /* start from first commit */,
+				-1 /* to the head commit */, true, true);
+		return entries.iterator().next();
 	}
 
 	protected SVNLogEntry getBranchFirstCommit(final String branchPath) throws Exception {
@@ -586,16 +581,20 @@ public class SVNVCS implements IVCS {
 	@Override
 	public VCSCommit getHeadCommit(String branchName) {
 		try {
-			SVNLogEntry entry = revToSVNEntry(getBranchName(branchName), -1L);
-			if (entry != null) {
-				return svnLogEntryToVCSCommit(entry);
-			}
-			return null;
+			SVNLogEntry headEntry = getDirHeadLogEntry(getBranchName(branchName));
+			return new VCSCommit(Long.toString(headEntry.getRevision()), headEntry.getMessage(), headEntry.getAuthor());
 		} catch (SVNException e) {
 			throw new EVCSException(e);
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
+	}
+	
+	protected SVNLogEntry getDirHeadLogEntry(String dir) throws Exception {
+		@SuppressWarnings("unchecked")
+		Collection<SVNLogEntry> entries = repository.log(new String[] { dir }, null, -1 /* start from head commit */,
+				0 /* to the first commit */, true, true);
+		return entries.iterator().next();
 	}
 
 	@Override
@@ -645,9 +644,6 @@ public class SVNVCS implements IVCS {
 	
 	protected SVNLogEntry revToSVNEntry(String branchName, Long rev) throws Exception {
 		SVNDirEntry info = repository.info(branchName, rev);
-		if (info == null) {
-			return null;
-		}
 		@SuppressWarnings("unchecked")
 		Collection<SVNLogEntry> entries = repository.log(new String[] {branchName}, null, info.getRevision(), info.getRevision(), true, true);
 		if (entries != null) {
@@ -659,34 +655,7 @@ public class SVNVCS implements IVCS {
 	@Override
 	public List<VCSTag> getTags() {
 		try {
-			//List<String> entries = listEntries(TAGS_PATH);
-			List<String> entries = new ArrayList<>();
-			@SuppressWarnings("unchecked")
-			Collection<SVNDirEntry> dirEntries = repository.getDir(TAGS_PATH, -1 , null , (Collection<SVNDirEntry>) null);
-			for (SVNDirEntry dirEntry : dirEntries) {
-				if (dirEntry.getKind() == SVNNodeKind.DIR) {
-					entries.add(TAGS_PATH + dirEntry.getName());
-				}
-			}
-			
-			List<VCSTag> res = new ArrayList<>();
-			for (String entryStr : entries) {
-
-				SVNLogEntry entry = revToSVNEntry(entryStr, -1L);
-
-				long tagCopyFrom = 0;
-				for (SVNLogEntryPath entryPath : getDirFirstCommit(entryStr).getChangedPaths().values()) {
-					tagCopyFrom = entryPath.getCopyRevision();
-				}
-//				repository.log(new String[] { entryStr }, -1 /* start from head descending */,
-//						0, true, true, -1, handler);
-				
-				SVNDirEntry copyFromEntry = repository.info("", tagCopyFrom);
-				
-				res.add(new VCSTag(entryStr.replace(TAGS_PATH, ""), entry.getMessage(), entry.getAuthor(), new VCSCommit(Long.toString(copyFromEntry.getRevision()),
-						copyFromEntry.getCommitMessage(), copyFromEntry.getAuthor())));
-			}
-			return res;
+			return getTags(null);
 		} catch (SVNException e) {
 			throw new EVCSException(e);
 		} catch (Exception e) {
@@ -718,42 +687,36 @@ public class SVNVCS implements IVCS {
 			throw new RuntimeException(e);
 		}
 	}
-
+	
+	protected List<VCSTag> getTags(String onRevision) throws Exception {
+		List<VCSTag> res = new ArrayList<>();
+		@SuppressWarnings("unchecked")
+		Collection<SVNDirEntry> dirEntries = repository.getDir(TAGS_PATH, -1 , null, (Collection<SVNDirEntry>) null);
+		for (SVNDirEntry dirEntry : dirEntries) {
+			long tagCopyFrom = 0;
+			
+			SVNLogEntry tagEntry = getDirFirstCommit(TAGS_PATH + dirEntry.getName());
+			for (SVNLogEntryPath entryPath : tagEntry.getChangedPaths().values()) {
+				tagCopyFrom = entryPath.getCopyRevision();
+			}
+			
+			if (onRevision == null || tagCopyFrom == Long.parseLong(onRevision)) {
+				SVNProperties props = repository.getRevisionProperties(tagCopyFrom, null);
+				res.add(new VCSTag(dirEntry.getName(), tagEntry.getMessage(), tagEntry.getAuthor(), new VCSCommit(Long.toString(tagCopyFrom),
+						props.getStringValue(SVNRevisionProperty.LOG), props.getStringValue(SVNRevisionProperty.AUTHOR))));
+			}
+		}
+		return res;
+	}
 
 	@Override
 	public List<VCSTag> getTagsOnRevision(String revision) {
 		try {
-			List<VCSTag> res = new ArrayList<>();
-			if (repository.checkPath(TAGS_PATH , -1) == SVNNodeKind.NONE) {
-				return res;
-			}
-			List<String> tagEntries = new ArrayList<>();
-			
-			@SuppressWarnings("unchecked")
-			Collection<SVNDirEntry> entries = repository.getDir(TAGS_PATH, -1 , null , (Collection<SVNDirEntry>) null);
-			for (SVNDirEntry entry : entries) {
-				if (entry.getKind() == SVNNodeKind.DIR) {
-					tagEntries.add(TAGS_PATH + entry.getName());
-				}
-			}
-			
-			for (String tagEntryStr : tagEntries) {
-				
-				SVNLogEntry entry = revToSVNEntry(tagEntryStr, -1L);
-
-				long tagCopyFrom = 0;
-				for (SVNLogEntryPath entryPath : getDirFirstCommit(tagEntryStr).getChangedPaths().values()) {
-					tagCopyFrom = entryPath.getCopyRevision();
-				}
-				
-				if (tagCopyFrom == Long.parseLong(revision)) {
-					SVNDirEntry copyFromEntry = repository.info("", tagCopyFrom);
-					res.add(new VCSTag(tagEntryStr.replace(TAGS_PATH, ""), entry.getMessage(), entry.getAuthor(), new VCSCommit(Long.toString(copyFromEntry.getRevision()),
-							copyFromEntry.getCommitMessage(), copyFromEntry.getAuthor())));
-				}
-			}
-			return res;
+			return getTags(revision);
 		} catch (SVNException e) {
+			if (e.getErrorMessage().getErrorCode().getCode() == SVN_FILE_NOT_FOUND_ERROR_CODE) {
+				return new ArrayList<>();
+			}
 			throw new EVCSException(e);
 		} catch (Exception e) {
 			throw new RuntimeException(e);
