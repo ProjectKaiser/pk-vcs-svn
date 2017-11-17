@@ -285,6 +285,14 @@ public class SVNVCSTest extends VCSAbstractTest {
 		} catch (EVCSException e) {
 			checkEVCSException(e);
 		}
+		doCallRealMethod().when(mockedRepo).getFile(anyString(), anyLong(), any(SVNProperties.class), any(OutputStream.class));
+		doThrow(testSVNException).when(mockedRepo).checkPath(anyString(), anyLong());
+		try {
+			vcs.getFileContent("wrong-branch", "", "");
+			fail();
+		} catch (EVCSException e) {
+			checkEVCSException(e);
+		}
 	}
 
 	@Test

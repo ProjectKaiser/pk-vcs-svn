@@ -247,16 +247,18 @@ public class SVNVCS implements IVCS {
 	public String getFileContent(String branchName, String filePath, String revision) {
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		try {
-			if (repository.checkPath(getBranchName(branchName), -1L) == SVNNodeKind.NONE) {
-				throw new EVCSBranchNotFound(getRepoUrl(), getBranchName(branchName));
-			}
 			repository.getFile(new File(getBranchName(branchName), filePath).getPath().replace("\\", "/"),
 					(revision == null || revision.isEmpty()) ? -1 : Long.parseLong(revision), new SVNProperties(), baos);
 			return baos.toString(StandardCharsets.UTF_8.name());
-		} catch (EVCSBranchNotFound e) {
-			throw e;
 		} catch (SVNException e) {
 			if (e.getErrorMessage().getErrorCode().getCode() == SVN_FILE_NOT_FOUND_ERROR_CODE) {
+				try {
+					if (repository.checkPath(getBranchName(branchName), -1L) == SVNNodeKind.NONE) {
+						throw new EVCSBranchNotFound(getRepoUrl(), getBranchName(branchName));
+					}
+				} catch (SVNException e1) {
+					throw new EVCSException(e1);
+				}
 				throw new EVCSFileNotFound(getRepoUrl(), getBranchName(branchName), filePath, revision);
 			}
 			throw new EVCSException(e);
@@ -348,15 +350,15 @@ public class SVNVCS implements IVCS {
 	}
 
 	protected SVNLogEntry getBranchFirstCommit(final String branchPath) throws Exception {
-		final List<SVNLogEntry> logEntries = new ArrayList<>();
-		repository.log(new String[] { getBranchName(branchPath) }, -1 /* start from head descending */,
-				0, true, true, -1, new ISVNLogEntryHandler() {
+		final SVNLogEntry[] firstEntryHolder = new SVNLogEntry[1]; 
+		repository.log(new String[] { getBranchName(branchPath) }, 0 /* start from first commit */,
+				-1 /* to the head commit */, true, true, 1 /* limit */, new ISVNLogEntryHandler() {
 			@Override
 			public void handleLogEntry(SVNLogEntry logEntry) throws SVNException {
-				logEntries.add(logEntry);
+				firstEntryHolder[0] = logEntry;
 			}
 		});
-		return logEntries.get(logEntries.size() - 1);
+		return firstEntryHolder[0];
 	}
 	
 	
