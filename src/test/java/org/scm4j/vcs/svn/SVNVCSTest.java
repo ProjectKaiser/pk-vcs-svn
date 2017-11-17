@@ -1,73 +1,48 @@
 package org.scm4j.vcs.svn;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyBoolean;
-import static org.mockito.Matchers.anyLong;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Matchers.isNull;
-import static org.mockito.Mockito.doCallRealMethod;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
-
-import java.io.File;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-
 import org.junit.After;
 import org.junit.Test;
 import org.mockito.Matchers;
-import org.mockito.exceptions.verification.WantedButNotInvoked;
 import org.scm4j.vcs.api.IVCS;
 import org.scm4j.vcs.api.VCSChangeType;
 import org.scm4j.vcs.api.WalkDirection;
 import org.scm4j.vcs.api.abstracttest.VCSAbstractTest;
 import org.scm4j.vcs.api.exceptions.EVCSException;
 import org.scm4j.vcs.api.workingcopy.IVCSRepositoryWorkspace;
-import org.tmatesoft.svn.core.ISVNLogEntryHandler;
-import org.tmatesoft.svn.core.SVNDepth;
-import org.tmatesoft.svn.core.SVNDirEntry;
-import org.tmatesoft.svn.core.SVNErrorCode;
-import org.tmatesoft.svn.core.SVNErrorMessage;
-import org.tmatesoft.svn.core.SVNException;
-import org.tmatesoft.svn.core.SVNNodeKind;
-import org.tmatesoft.svn.core.SVNProperties;
-import org.tmatesoft.svn.core.SVNURL;
+import org.tmatesoft.svn.core.*;
 import org.tmatesoft.svn.core.auth.ISVNProxyManager;
 import org.tmatesoft.svn.core.auth.SVNAuthentication;
 import org.tmatesoft.svn.core.auth.SVNPasswordAuthentication;
 import org.tmatesoft.svn.core.internal.wc.DefaultSVNOptions;
 import org.tmatesoft.svn.core.io.SVNRepository;
-import org.tmatesoft.svn.core.wc.SVNClientManager;
-import org.tmatesoft.svn.core.wc.SVNCommitClient;
-import org.tmatesoft.svn.core.wc.SVNStatusClient;
-import org.tmatesoft.svn.core.wc.SVNStatusType;
-import org.tmatesoft.svn.core.wc.SVNWCClient;
+import org.tmatesoft.svn.core.wc.*;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+
+import static org.junit.Assert.*;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyBoolean;
+import static org.mockito.Matchers.anyLong;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Matchers.isNull;
+import static org.mockito.Mockito.anyCollectionOf;
+import static org.mockito.Mockito.*;
 
 public class SVNVCSTest extends VCSAbstractTest {
 
 	private static final String FOLDER_STRUCT_CREATED_COMMIT_MESSAGE = "trunk/ and branches/ created";
 	private final RuntimeException testSvnRevertException = new RuntimeException("test exeption on svn revert");
 	private final SVNException testSVNException = new SVNException(SVNErrorMessage.create(SVNErrorCode.ATOMIC_INIT_FAILURE, "test svn exception"));
-	private final Exception testCommonException = new Exception("test exception");
+	private final IOException testCommonException = new IOException("test exception");
 	private SVNVCS svn;
-	private SVNRepository svnRepo;
-	private SVNWCClient mockedSVNRevertClient;
+	private SVNRepository svnRepo;private SVNWCClient mockedSVNRevertClient;
 
 	@Override
 	public void setUp() throws Exception {
@@ -152,71 +127,51 @@ public class SVNVCSTest extends VCSAbstractTest {
 	}
 
 	@Test
-	public void testExceptions() throws Exception {
-		for (Method m : IVCS.class.getDeclaredMethods()) {
-			Object[] params = new Object[m.getParameterTypes().length];
-			Integer i = 0;
-			for (Class<?> clazz : m.getParameterTypes()) {
-				params[i] = clazz.isPrimitive() ? 0: null;
-				i++;
-			}
-			testExceptionThrowing(testSVNException, m, params);
-
-			testExceptionThrowing(testCommonException, m, params);
-		}
+	public void testSVNExceptions() throws SVNException {
+		doThrow(testSVNException).when(svn).getBranchUrl(anyString());
+		doThrow(testSVNException).when(svn).listEntries(anyString());
+		doThrow(testSVNException).when(svn).getBranchFirstCommit(anyString());
+		doThrow(testSVNException).when(svn).getDirHeadLogEntry(anyString());
+		testSVNException(() -> svn.createBranch("", "", ""));
+		testSVNException(() -> svn.deleteBranch("", ""));
+		testSVNException(() -> svn.merge("", "", ""));
+		testSVNException(() -> svn.setFileContent("", "", "", ""));
+		testSVNException(() -> svn.getBranchesDiff("", ""));
+		testSVNException(() -> svn.getBranches(""));
+		testSVNException(() -> svn.log("", 0));
+		testSVNException(() -> svn.removeFile("", "", ""));
+		testSVNException(() -> svn.getCommitsRange("", null, WalkDirection.ASC, 0));
+		testSVNException(() -> svn.getCommitsRange("", null, ""));
+		testSVNException(() -> svn.getHeadCommit(""));
+		testSVNException(() -> svn.createTag("", "", "", ""));
+		testSVNException(() -> svn.checkout("", "", ""));
 	}
 
-	private void testExceptionThrowing(Exception testException, Method m, Object[] params) throws Exception {
-		reset(svn);
-		doThrow(testException).when(svn).checkout(any(SVNURL.class), any(File.class), (String) isNull());
-		doThrow(testException).when(svn).getBranchUrl(null);
-		doThrow(testException).when(svn).listEntries(anyString());
-		doThrow(testException).when(svn).getBranchFirstCommit(null);
-		doThrow(testException).when(svn).revToSVNEntry(anyString(), any(Long.class));
+	@Test
+	public void testCommonExceptions() throws IOException {
+		IVCSRepositoryWorkspace mockedRepo = mock(IVCSRepositoryWorkspace.class);
+		svn.setRepo(mockedRepo);
+		doThrow(testCommonException).when(mockedRepo).getVCSLockedWorkingCopy();
+		testCommonException(() -> svn.setFileContent("", "", "", ""));
+		testCommonException(() -> svn.merge("", "", ""));
+		testCommonException(() -> svn.getBranchesDiff("", ""));
+	}
+
+	private void testSVNException(Runnable toTest) {
+		testException(toTest, testSVNException);
+	}
+
+	private void testException(Runnable toTest, Exception expectedCause) {
 		try {
-			m.invoke(vcs, params); 
-			if (wasMockedMethodInvoked()) {
-				fail();
-			}
-		} catch (InvocationTargetException e) {
-			if (wasMockedMethodInvoked()) {
-				assertTrue(e.getCause() instanceof RuntimeException);
-				assertTrue(e.getCause().getMessage().contains(testException.getMessage()));
-			}
+			toTest.run();
+			fail();
 		} catch (Exception e) {
-			if (wasMockedMethodInvoked()) {
-				fail();
-			}
+			checkException(e, expectedCause);
 		}
 	}
 
-	private boolean wasMockedMethodInvoked() throws Exception {
-		try {
-			verify(svn).checkout(any(SVNURL.class), any(File.class), (String) isNull());
-			return true;
-		} catch (WantedButNotInvoked e1) {
-		}
-		try {
-			verify(svn).getBranchUrl(null);
-			return true;
-		} catch (WantedButNotInvoked e1) {
-		}
-		try {
-			verify(svn).listEntries(anyString());
-			return true;
-		} catch (WantedButNotInvoked e1) {
-		}
-		try {
-			verify(svn).getBranchFirstCommit(null);
-			return true;
-		} catch (WantedButNotInvoked e1) {
-		}
-		try {
-			verify(svn).revToSVNEntry(anyString(), any(Long.class));
-			return true;
-		} catch (WantedButNotInvoked e1) {
-		}
-		return false;
+	private void testCommonException(Runnable toTest) {
+		testException(toTest, testCommonException);
 	}
 
 	@Test
@@ -240,14 +195,12 @@ public class SVNVCSTest extends VCSAbstractTest {
 
 	@Test
 	public void testCreateBranchExceptions() throws Exception {
-		doThrow(testCommonException).when(svn).getBranchUrl("test");
-		try {
-			vcs.createBranch("", "", "");
-			fail();
-		} catch (RuntimeException e) {
-			checkCommonException(e);
-		}
-		doThrow(testSVNException).when(svn).getBranchUrl("test");
+		SVNClientManager mockedManager = spy(svn.getClientManager());
+		SVNCopyClient mockedCopyClient = mock(SVNCopyClient.class);
+		svn.setClientManager(mockedManager);
+		doReturn(mockedCopyClient).when(mockedManager).getCopyClient();
+		doThrow(testSVNException).when(mockedCopyClient).doCopy(any(SVNCopySource[].class), any(SVNURL.class),
+				anyBoolean(), anyBoolean(), anyBoolean(), anyString(), any(SVNProperties.class));
 		try {
 			vcs.createBranch("", "", "");
 			fail();
@@ -261,14 +214,42 @@ public class SVNVCSTest extends VCSAbstractTest {
 		super.testMergeConflictWCCorruption();
 		super.resetMocks();
 		setMakeFailureOnVCSReset(false);
-		doThrow(testCommonException).when(svn).getBranchUrl(anyString());
+		SVNWCClient mockedWCClient = mock(SVNWCClient.class);
+		doReturn(mockedWCClient).when(svn).getRevertClient(any(DefaultSVNOptions.class));
+		doThrow(testSVNException).when(mockedWCClient).doRevert(any(File[].class), any(SVNDepth.class),
+				Matchers.<Collection<String>>any());
+		vcs.merge(NEW_BRANCH, null, MERGE_COMMIT_MESSAGE);
+		assertTrue(mockedLWC.getCorrupted());
+
+		SVNClientManager mockedManager = spy(svn.getClientManager());
+		SVNDiffClient mockedDiffClient = spy(mockedManager.getDiffClient());
+		svn.setClientManager(mockedManager);
+		doReturn(mockedDiffClient).when(mockedManager).getDiffClient();
+		doThrow(testSVNException).when(mockedDiffClient).doMerge(any(SVNURL.class), any(SVNRevision.class),
+				anyCollectionOf(SVNRevisionRange.class), any(File.class), any(SVNDepth.class),
+				anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean());
 		try {
 			vcs.merge(NEW_BRANCH, null, MERGE_COMMIT_MESSAGE);
 			fail();
-		} catch (RuntimeException e) {
-			checkCommonException(e);
+		} catch (EVCSException e) {
+			checkEVCSException(e);
 		}
-		assertTrue(mockedLWC.getCorrupted());
+//		try {
+
+//			fail();
+//		} catch (EVCSException e) {
+//			checkEVCSException(e);
+//		}
+
+
+//		doThrow(testCommonException).when(svn).getBranchUrl(anyString());
+//		try {
+//			vcs.merge(NEW_BRANCH, null, MERGE_COMMIT_MESSAGE);
+//			fail();
+//		} catch (RuntimeException e) {
+//			checkException(e, testCommonException);
+//		}
+
 	}
 
 	@Test
@@ -307,6 +288,17 @@ public class SVNVCSTest extends VCSAbstractTest {
 		} catch (EVCSException e) {
 			checkEVCSException(e);
 		}
+
+		SVNRepository repo = svn.getSVNRepository();
+		svn.setSVNRepository(null);
+		try {
+			vcs.getFileContent("", "", "");
+			fail();
+		} catch (RuntimeException e) {
+			assertTrue(e.getCause() instanceof NullPointerException);
+		}
+		svn.setSVNRepository(repo);
+
 		doCallRealMethod().when(mockedRepo).getFile(anyString(), anyLong(), any(SVNProperties.class), any(OutputStream.class));
 		doThrow(testSVNException).when(mockedRepo).checkPath(anyString(), anyLong());
 		try {
@@ -336,56 +328,20 @@ public class SVNVCSTest extends VCSAbstractTest {
 	}
 
 	private void checkEVCSException(EVCSException e) {
-		assertTrue(e.getCause() instanceof SVNException);
-		assertTrue(e.getCause().getMessage().contains(testSVNException.getMessage()));
+		checkException(e, testSVNException);
 	}
 
-	private void checkCommonException(RuntimeException e) {
-		assertTrue(e.getCause() instanceof Exception);
-		assertTrue(e.getCause().getMessage().contains(testCommonException.getMessage()));
-	}
-
-	@Test
-	public void testGetCommitsRangeExceptions() throws Exception {
-		SVNRepository mockedRepo = spy(svn.getSVNRepository());
-		svn.setSVNRepository(mockedRepo);
-		doThrow(testSVNException).when(mockedRepo).log(any(String[].class), anyLong(), anyLong(), anyBoolean(), anyBoolean(),
-				any(Integer.class), any(ISVNLogEntryHandler.class));
-		doThrow(testCommonException).when(svn).getBranchFirstCommit(anyString());
-		try {
-			vcs.getCommitsRange("", null, null);
-			fail();
-		} catch (RuntimeException e) {
-			checkCommonException(e);
-		}
-
-		try {
-			vcs.getCommitsRange(null, null, WalkDirection.ASC, 0);
-			fail();
-		} catch (EVCSException e) {
-			checkEVCSException(e);
+	private void checkException(Exception e, Exception expectedCause) {
+		assertEquals(expectedCause.getClass(), e.getCause().getClass());
+		if (e.getCause().getMessage() == null) {
+			assertNull(expectedCause.getMessage());
+		} else {
+			assertTrue(e.getCause().getMessage().contains(expectedCause.getMessage()));
 		}
 	}
 
-	@Test
-	public void testGetHeadCommitExceptions() throws Exception {
-		SVNRepository mockedRepo = spy(svn.getSVNRepository());
-		svn.setSVNRepository(mockedRepo);
-		doThrow(testSVNException).when(svn).getDirHeadLogEntry(anyString());
-		try {
-			vcs.getHeadCommit("");
-			fail();
-		} catch (EVCSException e) {
-			checkEVCSException(e);
-		}
-
-		doThrow(testCommonException).when(svn).getDirHeadLogEntry(anyString());
-		try {
-			vcs.getHeadCommit("");
-			fail();
-		} catch (RuntimeException e) {
-			checkCommonException(e);
-		}
+	private void checkCommonException(Exception e) {
+		checkException(e, testCommonException);
 	}
 
 	@Test
@@ -452,24 +408,14 @@ public class SVNVCSTest extends VCSAbstractTest {
 		assertTrue(vcs.getTagsOnRevision("0").isEmpty());
 	}
 	
-	
 	@Test
 	public void testGetTagsOnRevisionExceptions() throws Exception {
-		vcs.createTag(null, TAG_NAME_1, TAG_MESSAGE_1, null);
 		doThrow(testSVNException).when(svn).getTags(anyString());
 		try {
 			vcs.getTagsOnRevision("");
 			fail();
 		} catch (EVCSException e) {
 			checkEVCSException(e);
-		}
-		
-		doThrow(testCommonException).when(svn).getTags(anyString());
-		try {
-			vcs.getTagsOnRevision("");
-			fail();
-		} catch (RuntimeException e) {
-			checkCommonException(e);
 		}
 	}
 	
@@ -482,13 +428,20 @@ public class SVNVCSTest extends VCSAbstractTest {
 		} catch (EVCSException e) {
 			checkEVCSException(e);
 		}
-		
-		doThrow(testCommonException).when(svn).getTags((String) isNull());
+	}
+
+	@Test
+	public void testRemoveTagExceptions() throws SVNException {
+		SVNClientManager mockedManager = spy(svn.getClientManager());
+		SVNCommitClient mockedCommitClient = mock(SVNCommitClient.class);
+		svn.setClientManager(mockedManager);
+		doReturn(mockedCommitClient).when(mockedManager).getCommitClient();
+		doThrow(testSVNException).when(mockedCommitClient).doDelete(any(SVNURL[].class), (String) isNull());
 		try {
-			vcs.getTags();
+			vcs.removeTag("");
 			fail();
-		} catch (RuntimeException e) {
-			checkCommonException(e);
+		} catch (EVCSException e) {
+			checkEVCSException(e);
 		}
 	}
 }

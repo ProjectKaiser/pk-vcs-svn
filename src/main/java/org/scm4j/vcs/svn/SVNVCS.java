@@ -3,11 +3,7 @@ package org.scm4j.vcs.svn;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.scm4j.vcs.api.*;
-import org.scm4j.vcs.api.exceptions.EVCSBranchExists;
-import org.scm4j.vcs.api.exceptions.EVCSBranchNotFound;
-import org.scm4j.vcs.api.exceptions.EVCSException;
-import org.scm4j.vcs.api.exceptions.EVCSFileNotFound;
-import org.scm4j.vcs.api.exceptions.EVCSTagExists;
+import org.scm4j.vcs.api.exceptions.*;
 import org.scm4j.vcs.api.workingcopy.IVCSLockedWorkingCopy;
 import org.scm4j.vcs.api.workingcopy.IVCSRepositoryWorkspace;
 import org.scm4j.vcs.api.workingcopy.IVCSWorkspace;
@@ -31,26 +27,25 @@ public class SVNVCS implements IVCS {
 	private static final int SVN_PATH_IS_NOT_WORKING_COPY_ERROR_CODE = 155007;
 	private static final int SVN_ITEM_EXISTS_ERROR_CODE = 160020;
 	private static final int SVN_FILE_NOT_FOUND_ERROR_CODE = 160013;
+
+	public static final String MASTER_PATH= "trunk/";
+	public static final String BRANCHES_PATH = "branches/";
+	public static final String TAGS_PATH = "tags/";
+	public static final String SVN_VCS_TYPE_STRING = "svn";
+
 	private BasicAuthenticationManager authManager;
 	private SVNRepository repository;
 	private ISVNOptions options;
 	private SVNClientManager clientManager;
 	private SVNURL trunkSVNUrl;
 	private SVNAuthentication userPassAuth;
-	private final IVCSRepositoryWorkspace repo;
+	private IVCSRepositoryWorkspace repo;
 	private String repoUrl;
-	
-	public static final String MASTER_PATH= "trunk/";
-	public static final String BRANCHES_PATH = "branches/";
-	public static final String TAGS_PATH = "tags/";
-	public static final String SVN_VCS_TYPE_STRING = "svn";
-	
 
 	public void setClientManager(SVNClientManager clientManager) {
 		this.clientManager = clientManager;
 	}
 
-	
 	public SVNClientManager getClientManager() {
 		return clientManager;
 	}
@@ -69,6 +64,10 @@ public class SVNVCS implements IVCS {
 
 	public void setSVNRepository(SVNRepository repository) {
 		this.repository = repository;
+	}
+
+	public void setRepo(IVCSRepositoryWorkspace repo) {
+		this.repo = repo;
 	}
 	
 	public SVNVCS(IVCSRepositoryWorkspace repo, String user, String password) {
@@ -94,7 +93,7 @@ public class SVNVCS implements IVCS {
 				options, repository.getAuthenticationManager());
 	}
 	
-	public SVNURL getBranchUrl(String branchPath) throws Exception {
+	public SVNURL getBranchUrl(String branchPath) throws SVNException {
 		return SVNURL.parseURIEncoded(repoUrl + getBranchName(branchPath));
 	}
 
@@ -105,33 +104,29 @@ public class SVNVCS implements IVCS {
 		try {
 			fromUrl = getBranchUrl(srcBranchName);
 			toUrl = getBranchUrl(dstBranchName);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
+		} catch (SVNException e) {
+			throw new EVCSException(e);
 		}
 		createBranch(fromUrl, toUrl, commitMessage);
 	}
 	
 	public void createBranch(SVNURL fromUrl, SVNURL toUrl, String commitMessage) {
 		try {
-			getBranchUrl("test"); // for exceptions rethrowing test only
 			SVNCopyClient copyClient = clientManager.getCopyClient();
 			SVNCopySource copySource = new SVNCopySource(SVNRevision.HEAD, SVNRevision.HEAD, fromUrl);
 			copySource.setCopyContents(false);
-
 			copyClient.doCopy(new SVNCopySource[] { copySource }, toUrl,
 					false, // isMove
 					true, // make parents
-					true, // failWhenDstExistsb
+					true, // failWhenDstExists
 					commitMessage, // commit message
 					null); // SVNProperties
 
 		} catch (SVNException e) {
 			if (e.getErrorMessage().getErrorCode().getCode() == SVN_ITEM_EXISTS_ERROR_CODE) {
 				throw new EVCSBranchExists(e);
-			} 
-			throw new EVCSException (e);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
+			}
+			throw new EVCSException(e);
 		}
 	}
 
@@ -143,8 +138,6 @@ public class SVNVCS implements IVCS {
 					.doDelete(new SVNURL[] { getBranchUrl(branchName) }, commitMessage);
 		} catch (SVNException e) {
 			throw new EVCSException(e);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
 		}
 	}
 	
@@ -156,14 +149,10 @@ public class SVNVCS implements IVCS {
 
 			DefaultSVNOptions options = (DefaultSVNOptions) diffClient.getOptions();
 			final List<String> conflictingFiles = new ArrayList<>();
-			options.setConflictHandler(new ISVNConflictHandler() {
-				@Override
-				public SVNConflictResult handleConflict(SVNConflictDescription conflictDescription)
-						throws SVNException {
-					conflictingFiles.add(conflictDescription.getMergeFiles().getLocalPath());
-					return new SVNConflictResult(SVNConflictChoice.POSTPONE,
-							conflictDescription.getMergeFiles().getResultFile());
-				}
+			options.setConflictHandler(conflictDescription -> {
+				conflictingFiles.add(conflictDescription.getMergeFiles().getLocalPath());
+				return new SVNConflictResult(SVNConflictChoice.POSTPONE,
+						conflictDescription.getMergeFiles().getResultFile());
 			});
 
 			SVNRevisionRange range = new SVNRevisionRange(SVNRevision.create(1), SVNRevision.HEAD);
@@ -189,7 +178,7 @@ public class SVNVCS implements IVCS {
 					}
 				}
 				return new VCSMergeResult(success, conflictingFiles);
-			} catch (Exception e) {
+			} catch (SVNException e) {
 				wc.setCorrupted(true);
 				throw e;
 			}
@@ -200,11 +189,11 @@ public class SVNVCS implements IVCS {
 		}
 	}
 
-	public SVNWCClient getRevertClient(DefaultSVNOptions options) {
+	protected SVNWCClient getRevertClient(DefaultSVNOptions options) {
 		return new SVNWCClient(authManager, options);
 	}
 
-	public void checkout(SVNURL sourceUrl, File destPath, String revision) throws Exception {
+	public void checkout(SVNURL sourceUrl, File destPath, String revision) throws SVNException {
 		SVNUpdateClient updateClient = clientManager.getUpdateClient();
 		updateClient.setIgnoreExternals(false);
 		SVNRevision svnRevision = revision == null ? SVNRevision.HEAD : SVNRevision.parse(revision);
@@ -356,10 +345,9 @@ public class SVNVCS implements IVCS {
 		return entries.iterator().next();
 	}
 
-	protected SVNLogEntry getBranchFirstCommit(final String branchPath) throws Exception {
+	protected SVNLogEntry getBranchFirstCommit(final String branchPath) throws SVNException {
 		return getDirFirstCommit(getBranchName(branchPath));
 	}
-	
 	
 	private List<VCSDiffEntry> getDiffEntries(final String srcBranchName, final String dstBranchName)
 			throws Exception {
@@ -431,13 +419,11 @@ public class SVNVCS implements IVCS {
 			return res;
 		} catch (SVNException e) {
 			throw new EVCSException(e);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
 		}
 	}
 	
 	@SuppressWarnings("unchecked")
-	protected List<String> listEntries(String path) throws Exception {
+	protected List<String> listEntries(String path) throws SVNException {
 		List<String> res = new ArrayList<>();
 		if (path == null) {
 			return res;
@@ -489,8 +475,6 @@ public class SVNVCS implements IVCS {
 			return res;
 		} catch (SVNException e) {
 			throw new EVCSException(e);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
 		}
 	}
 
@@ -508,10 +492,7 @@ public class SVNVCS implements IVCS {
 			return new VCSCommit(Long.toString(res.getNewRevision()), commitMessage, res.getAuthor());
 		} catch (SVNException e) {
 			throw new EVCSException(e);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
 		}
-		
 	}
 	
 	@Override
@@ -530,18 +511,13 @@ public class SVNVCS implements IVCS {
 				untilCommit = getBranchFirstCommit(branchName).getRevision();
 			}
 			repository.log(new String[] { getBranchName(branchName) }, sinceCommit, untilCommit, true, true, limit,
-					new ISVNLogEntryHandler() {
-				@Override
-				public void handleLogEntry(SVNLogEntry logEntry) throws SVNException {
-					VCSCommit commit = svnLogEntryToVCSCommit(logEntry);
-					res.add(commit);
-				}
-			});
+					logEntry -> {
+						VCSCommit commit = svnLogEntryToVCSCommit(logEntry);
+						res.add(commit);
+					});
 			return res;
 		} catch (SVNException e) {
 			throw new EVCSException(e);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
 		}
 	}
 	
@@ -559,17 +535,10 @@ public class SVNVCS implements IVCS {
 					Long.parseLong(firstCommitId);
 			Long untilCommit = untilCommitId == null ? -1L : Long.parseLong(untilCommitId);
 			repository.log(new String[] { getBranchName(branchName) }, sinceCommit, untilCommit, true, true, 0 /* limit */,
-					new ISVNLogEntryHandler() {
-				@Override
-				public void handleLogEntry(SVNLogEntry logEntry) throws SVNException {
-					res.add(svnLogEntryToVCSCommit(logEntry));
-				}
-			});
+					logEntry -> res.add(svnLogEntryToVCSCommit(logEntry)));
 			return res;
 		} catch (SVNException e) {
 			throw new EVCSException(e);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
 		}
 	}
 
@@ -588,12 +557,10 @@ public class SVNVCS implements IVCS {
 				return null;
 			}
 			throw new EVCSException(e);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
 		}
 	}
 	
-	protected SVNLogEntry getDirHeadLogEntry(String dir) throws Exception {
+	protected SVNLogEntry getDirHeadLogEntry(String dir) throws SVNException {
 		@SuppressWarnings("unchecked")
 		Collection<SVNLogEntry> entries = repository.log(new String[] { dir }, null, -1 /* start from head commit */,
 				0 /* to the first commit */, true, true);
@@ -613,8 +580,6 @@ public class SVNVCS implements IVCS {
 			return nodeKind == SVNNodeKind.FILE;
 		} catch (SVNException e) {
 			throw new EVCSException(e);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
 		}
 	}
 	
@@ -640,12 +605,10 @@ public class SVNVCS implements IVCS {
 				throw new EVCSTagExists(e);
 			} 
 			throw new EVCSException(e);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
 		}
 	}
 	
-	protected SVNLogEntry revToSVNEntry(String branchName, Long rev) throws Exception {
+	protected SVNLogEntry revToSVNEntry(String branchName, Long rev) throws SVNException {
 		SVNDirEntry info = repository.info(branchName, rev);
 		@SuppressWarnings("unchecked")
 		Collection<SVNLogEntry> entries = repository.log(new String[] {branchName}, null, info.getRevision(), info.getRevision(), true, true);
@@ -661,22 +624,17 @@ public class SVNVCS implements IVCS {
 			return getTags(null);
 		} catch (SVNException e) {
 			throw new EVCSException(e);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
 		}
 	}
 
 	@Override
 	public void removeTag(String tagName) {
 		try {
-			getBranchUrl(null); // for test exceptions throwing only 
 			clientManager
 					.getCommitClient()
 					.doDelete(new SVNURL[] { SVNURL.parseURIEncoded(repoUrl + TAGS_PATH + tagName) }, null);
 		} catch (SVNException e) {
 			throw new EVCSException(e);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
 		}
 	}
 
@@ -686,12 +644,10 @@ public class SVNVCS implements IVCS {
 			checkout(getBranchUrl(branchName), new File(targetPath), revision);
 		} catch (SVNException e) {
 			throw new EVCSException(e);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
 		}
 	}
 	
-	protected List<VCSTag> getTags(String onRevision) throws Exception {
+	protected List<VCSTag> getTags(String onRevision) throws SVNException {
 		List<VCSTag> res = new ArrayList<>();
 		@SuppressWarnings("unchecked")
 		Collection<SVNDirEntry> dirEntries = repository.getDir(TAGS_PATH, -1 , null, (Collection<SVNDirEntry>) null);
@@ -721,8 +677,6 @@ public class SVNVCS implements IVCS {
 				return new ArrayList<>();
 			}
 			throw new EVCSException(e);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
 		}
 	}
 }
