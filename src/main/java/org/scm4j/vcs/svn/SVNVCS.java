@@ -584,6 +584,9 @@ public class SVNVCS implements IVCS {
 			SVNLogEntry headEntry = getDirHeadLogEntry(getBranchName(branchName));
 			return new VCSCommit(Long.toString(headEntry.getRevision()), headEntry.getMessage(), headEntry.getAuthor());
 		} catch (SVNException e) {
+			if (e.getErrorMessage().getErrorCode().getCode() == SVN_FILE_NOT_FOUND_ERROR_CODE) {
+				return null;
+			}
 			throw new EVCSException(e);
 		} catch (Exception e) {
 			throw new RuntimeException(e);
