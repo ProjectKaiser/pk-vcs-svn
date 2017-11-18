@@ -234,22 +234,6 @@ public class SVNVCSTest extends VCSAbstractTest {
 		} catch (EVCSException e) {
 			checkEVCSException(e);
 		}
-//		try {
-
-//			fail();
-//		} catch (EVCSException e) {
-//			checkEVCSException(e);
-//		}
-
-
-//		doThrow(testCommonException).when(svn).getBranchUrl(anyString());
-//		try {
-//			vcs.merge(NEW_BRANCH, null, MERGE_COMMIT_MESSAGE);
-//			fail();
-//		} catch (RuntimeException e) {
-//			checkException(e, testCommonException);
-//		}
-
 	}
 
 	@Test
@@ -338,10 +322,6 @@ public class SVNVCSTest extends VCSAbstractTest {
 		} else {
 			assertTrue(e.getCause().getMessage().contains(expectedCause.getMessage()));
 		}
-	}
-
-	private void checkCommonException(Exception e) {
-		checkException(e, testCommonException);
 	}
 
 	@Test

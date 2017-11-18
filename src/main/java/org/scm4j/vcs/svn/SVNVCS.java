@@ -437,17 +437,14 @@ public class SVNVCS implements IVCS {
 		
 		Collection<SVNDirEntry> entries = repository.getDir(lastFolder, -1 , null , (Collection<SVNDirEntry>) null);
 		List<SVNDirEntry> entriesList = new ArrayList<>(entries);
-		Collections.sort(entriesList, new Comparator<SVNDirEntry>() {
-			@Override
-			public int compare(SVNDirEntry o1, SVNDirEntry o2) {
-				if (o1.getRevision() < o2.getRevision()) {
-					return -1;
-				}
-				if (o1.getRevision() > o2.getRevision()) {
-					return 1;
-				}
-				return 0;
+		Collections.sort(entriesList, (o1, o2) -> {
+			if (o1.getRevision() < o2.getRevision()) {
+				return -1;
 			}
+			if (o1.getRevision() > o2.getRevision()) {
+				return 1;
+			}
+			return 0;
 		});
 		for (SVNDirEntry entry : entriesList) {
 			if (entry.getKind() == SVNNodeKind.DIR && entry.getName().startsWith(folderPrefix)) {
