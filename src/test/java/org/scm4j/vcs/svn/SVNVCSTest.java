@@ -112,7 +112,7 @@ public class SVNVCSTest extends VCSAbstractTest {
 		testAuth(svn, "user", "pass");
 	}
 	
-	public void testAuth(SVNVCS svn, String user, String pass) throws Exception {
+	private void testAuth(SVNVCS svn, String user, String pass) throws Exception {
 		SVNRepository repo = svn.getSVNRepository();
 		SVNAuthentication auth = repo.getAuthenticationManager().getFirstAuthentication("svn.simple", "",
 				svn.getTrunkSVNUrl());
