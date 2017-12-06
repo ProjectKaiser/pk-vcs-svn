@@ -6,7 +6,6 @@ import org.scm4j.vcs.api.*;
 import org.scm4j.vcs.api.exceptions.*;
 import org.scm4j.vcs.api.workingcopy.IVCSLockedWorkingCopy;
 import org.scm4j.vcs.api.workingcopy.IVCSRepositoryWorkspace;
-import org.scm4j.vcs.api.workingcopy.IVCSWorkspace;
 import org.tmatesoft.svn.core.*;
 import org.tmatesoft.svn.core.auth.BasicAuthenticationManager;
 import org.tmatesoft.svn.core.auth.SVNAuthentication;
@@ -15,7 +14,10 @@ import org.tmatesoft.svn.core.internal.wc.DefaultSVNOptions;
 import org.tmatesoft.svn.core.io.SVNRepository;
 import org.tmatesoft.svn.core.io.SVNRepositoryFactory;
 import org.tmatesoft.svn.core.wc.*;
-import org.tmatesoft.svn.core.wc2.*;
+import org.tmatesoft.svn.core.wc2.SvnDiff;
+import org.tmatesoft.svn.core.wc2.SvnDiffSummarize;
+import org.tmatesoft.svn.core.wc2.SvnOperationFactory;
+import org.tmatesoft.svn.core.wc2.SvnTarget;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -474,21 +476,21 @@ public class SVNVCS implements IVCS {
 	}
 	
 	@Override
-	public List<VCSCommit> getCommitsRange(String branchName, String firstCommitId, WalkDirection direction, int limit) {
+	public List<VCSCommit> getCommitsRange(String branchName, String startRevision, WalkDirection direction, int limit) {
 		final List<VCSCommit> res = new ArrayList<>();
 		try {
-			Long sinceCommit;
-			Long untilCommit;
+			Long startRevisionLong;
+			Long endRevisionLong;
 			if (direction == WalkDirection.ASC) {
-				sinceCommit = firstCommitId == null ? getBranchFirstCommit(branchName).getRevision() :
-					Long.parseLong(firstCommitId);
-				untilCommit = Long.parseLong(getHeadCommit(branchName).getRevision());
+				startRevisionLong = startRevision == null ? getBranchFirstCommit(branchName).getRevision() :
+					Long.parseLong(startRevision);
+				endRevisionLong = Long.parseLong(getHeadCommit(branchName).getRevision());
 			} else {
-				sinceCommit = firstCommitId == null ? Long.parseLong(getHeadCommit(branchName).getRevision()) :
-					Long.parseLong(firstCommitId);
-				untilCommit = getBranchFirstCommit(branchName).getRevision();
+				startRevisionLong = startRevision == null ? Long.parseLong(getHeadCommit(branchName).getRevision()) :
+					Long.parseLong(startRevision);
+				endRevisionLong = getBranchFirstCommit(branchName).getRevision();
 			}
-			repository.log(new String[] { getBranchName(branchName) }, sinceCommit, untilCommit, true, true, limit,
+			repository.log(new String[] { getBranchName(branchName) }, startRevisionLong, endRevisionLong, true, true, limit,
 					logEntry -> {
 						VCSCommit commit = svnLogEntryToVCSCommit(logEntry);
 						res.add(commit);
@@ -505,24 +507,19 @@ public class SVNVCS implements IVCS {
 	}
 
 	@Override
-	public List<VCSCommit> getCommitsRange(String branchName, String firstCommitId, String untilCommitId) {
+	public List<VCSCommit> getCommitsRange(String branchName, String startRevision, String endRevision) {
 		final List<VCSCommit> res = new ArrayList<>();
 		try {
-			Long sinceCommit = firstCommitId == null ?
+			Long startRevisionLong = startRevision == null ?
 					getBranchFirstCommit(branchName).getRevision() :
-					Long.parseLong(firstCommitId);
-			Long untilCommit = untilCommitId == null ? -1L : Long.parseLong(untilCommitId);
-			repository.log(new String[] { getBranchName(branchName) }, sinceCommit, untilCommit, true, true, 0 /* limit */,
+					Long.parseLong(startRevision);
+			Long endRevisionLong = endRevision == null ? -1L : Long.parseLong(endRevision);
+			repository.log(new String[] { getBranchName(branchName) }, startRevisionLong, endRevisionLong, true, true, 0 /* limit */,
 					logEntry -> res.add(svnLogEntryToVCSCommit(logEntry)));
 			return res;
 		} catch (SVNException e) {
 			throw new EVCSException(e);
 		}
-	}
-
-	@Override
-	public IVCSWorkspace getWorkspace() {
-		return repo.getWorkspace();
 	}
 
 	@Override
