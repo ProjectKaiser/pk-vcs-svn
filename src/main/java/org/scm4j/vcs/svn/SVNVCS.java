@@ -99,19 +99,9 @@ public class SVNVCS implements IVCS {
 
 	@Override
 	public void createBranch(String srcBranchName, String dstBranchName, String commitMessage) throws EVCSBranchExists {
-		SVNURL fromUrl;
-		SVNURL toUrl;
 		try {
-			fromUrl = getBranchUrl(srcBranchName);
-			toUrl = getBranchUrl(dstBranchName);
-		} catch (SVNException e) {
-			throw new EVCSException(e);
-		}
-		createBranch(fromUrl, toUrl, commitMessage);
-	}
-	
-	private void createBranch(SVNURL fromUrl, SVNURL toUrl, String commitMessage) {
-		try {
+			SVNURL fromUrl = getBranchUrl(srcBranchName);
+			SVNURL toUrl = getBranchUrl(dstBranchName);
 			SVNCopyClient copyClient = clientManager.getCopyClient();
 			SVNCopySource copySource = new SVNCopySource(SVNRevision.HEAD, SVNRevision.HEAD, fromUrl);
 			copySource.setCopyContents(false);
@@ -123,13 +113,13 @@ public class SVNVCS implements IVCS {
 					null); // SVNProperties
 
 		} catch (SVNException e) {
-			if (e.getErrorMessage().getErrorCode().getCode() == SVN_ITEM_EXISTS_ERROR_CODE) {
-				throw new EVCSBranchExists(e);
-			}
-			throw new EVCSException(e);
+		if (e.getErrorMessage().getErrorCode().getCode() == SVN_ITEM_EXISTS_ERROR_CODE) {
+			throw new EVCSBranchExists(dstBranchName);
+		}
+		throw new EVCSException(e);
 		}
 	}
-
+	
 	@Override
 	public void deleteBranch(String branchName, String commitMessage) {
 		try {
