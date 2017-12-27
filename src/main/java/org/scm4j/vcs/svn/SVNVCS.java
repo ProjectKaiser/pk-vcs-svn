@@ -259,9 +259,9 @@ public class SVNVCS implements IVCS {
 	private String getBranchName(String branchName) {
 		return branchName == null ? MASTER_PATH : BRANCHES_PATH + branchName;
 	}
-
+	
 	@Override
-	public VCSCommit setFileContent(String branchName, String filePath, String content, String commitMessage) {
+	public void VCSCommit setFilesContent(String branchName, List<String> filePathes, List<String> contents, String commitMessage) {
 		try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
 			checkout(getBranchUrl(branchName), wc.getFolder(), null);
 			File file = new File(wc.getFolder(), filePath);
@@ -299,6 +299,11 @@ public class SVNVCS implements IVCS {
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
+	}
+
+	@Override
+	public VCSCommit setFileContent(String branchName, String filePath, String content, String commitMessage) {
+		return setFilesContent(branchName, Collections.singletonList(filePath), Collections.singletonList(content), commitMessage);
 	}
 
 	@Override
