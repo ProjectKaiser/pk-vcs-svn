@@ -253,26 +253,35 @@ public class SVNVCS implements IVCS {
 	}
 	
 	@Override
-	public void VCSCommit setFilesContent(String branchName, List<String> filePathes, List<String> contents, String commitMessage) {
+	public VCSCommit setFilesContent(String branchName, List<String> filePathes, List<String> contents, String commitMessage) {
+		if (filePathes.isEmpty()) {
+			return null;
+		}
 		try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
 			checkout(getBranchUrl(branchName), wc.getFolder(), null);
-			File file = new File(wc.getFolder(), filePath);
-			Boolean needToAdd = !file.exists();
-			if (!file.exists()) {
-				FileUtils.forceMkdir(file.getParentFile());
-				file.createNewFile();
-			}
-
-			FileWriter writer = new FileWriter(file);
-			writer.write(content);
-			writer.close();
-
-			if (needToAdd) {
-				clientManager
-						.getWCClient()
-						.doAdd(file,
-								true /* force, avoiding "file is already under version control" exception */,
-								false, false, SVNDepth.EMPTY, false, true);
+			int contentId = 0;
+			for (int filePathId = 0; filePathId < filePathes.size(); filePathId++) {
+				String filePath = filePathes.get(filePathId);
+				File file = new File(wc.getFolder(), filePath);
+				Boolean needToAdd = !file.exists();
+				if (needToAdd) {
+					FileUtils.forceMkdir(file.getParentFile());
+					file.createNewFile();
+				}
+	
+				String content = contents.get(contentId);
+				FileWriter writer = new FileWriter(file);
+				writer.write(content);
+				writer.close();
+				contentId++;
+	
+				if (needToAdd) {
+					clientManager
+							.getWCClient()
+							.doAdd(file,
+									true /* force, avoiding "file is already under version control" exception */,
+									false, false, SVNDepth.EMPTY, false, true);
+				}
 			}
 
 			try {
