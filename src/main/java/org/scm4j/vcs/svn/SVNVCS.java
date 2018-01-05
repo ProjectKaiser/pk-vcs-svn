@@ -253,15 +253,15 @@ public class SVNVCS implements IVCS {
 	}
 	
 	@Override
-	public VCSCommit setFilesContent(String branchName, List<String> filePathes, List<String> contents, String commitMessage) {
-		if (filePathes.isEmpty()) {
+	public VCSCommit setFileContent(String branchName, List<VCSChangeListNode> vcsChangeList) {
+		if (vcsChangeList.isEmpty()) {
 			return null;
 		}
 		try (IVCSLockedWorkingCopy wc = repo.getVCSLockedWorkingCopy()) {
 			checkout(getBranchUrl(branchName), wc.getFolder(), null);
-			int contentId = 0;
-			for (int filePathId = 0; filePathId < filePathes.size(); filePathId++) {
-				String filePath = filePathes.get(filePathId);
+			StringBuilder commitMessageSB = new StringBuilder();
+			for (VCSChangeListNode vcsChangeListNode : vcsChangeList) {
+				String filePath = vcsChangeListNode.getFilePath();
 				File file = new File(wc.getFolder(), filePath);
 				Boolean needToAdd = !file.exists();
 				if (needToAdd) {
@@ -269,12 +269,10 @@ public class SVNVCS implements IVCS {
 					file.createNewFile();
 				}
 	
-				String content = contents.get(contentId);
-				FileWriter writer = new FileWriter(file);
-				writer.write(content);
-				writer.close();
-				contentId++;
-	
+				try (FileWriter writer = new FileWriter(file)) {
+					writer.write(vcsChangeListNode.getContent());
+				}
+
 				if (needToAdd) {
 					clientManager
 							.getWCClient()
@@ -282,8 +280,11 @@ public class SVNVCS implements IVCS {
 									true /* force, avoiding "file is already under version control" exception */,
 									false, false, SVNDepth.EMPTY, false, true);
 				}
+				commitMessageSB.append(vcsChangeListNode.getLogMessage() + VCSChangeListNode.COMMIT_MESSAGES_SEPARATOR);
 			}
 
+			commitMessageSB.setLength(commitMessageSB.length() - VCSChangeListNode.COMMIT_MESSAGES_SEPARATOR.length());
+			String commitMessage = commitMessageSB.toString();
 			try {
 				SVNCommitInfo newCommit = clientManager
 						.getCommitClient()
@@ -304,7 +305,7 @@ public class SVNVCS implements IVCS {
 
 	@Override
 	public VCSCommit setFileContent(String branchName, String filePath, String content, String commitMessage) {
-		return setFilesContent(branchName, Collections.singletonList(filePath), Collections.singletonList(content), commitMessage);
+		return setFileContent(branchName, Collections.singletonList(new VCSChangeListNode(filePath, content, commitMessage)));
 	}
 
 	@Override
