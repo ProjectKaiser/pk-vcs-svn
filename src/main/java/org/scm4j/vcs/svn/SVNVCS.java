@@ -203,9 +203,8 @@ public class SVNVCS implements IVCS {
 		} catch (SVNException e) {
 			if (e.getErrorMessage().getErrorCode().getCode() == SVN_PATH_IS_NOT_WORKING_COPY_ERROR_CODE) {
 				return false;
-			} else {
-				throw new EVCSException(e);
 			}
+			throw new EVCSException(e);
 		}
 	}
 
