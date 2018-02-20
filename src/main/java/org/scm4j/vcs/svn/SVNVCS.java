@@ -222,9 +222,39 @@ public class SVNVCS implements IVCS {
 		authManager.setProxy(host, port, proxyUser, proxyPassword.toCharArray());
 	}
 
+	@Override
+	public String getFileContentFromBranch(String branchName, String filePath) throws EVCSFileNotFound {
+		return getFileContent(branchName, filePath, null);
+	}
 
 	@Override
-	public String getFileContent(String branchName, String filePath, String revision) {
+	public String getFileContentFromRevision(String revision, String filePath) throws EVCSFileNotFound {
+		final String[] branchNames = new String[1];
+		ISVNLogEntryHandler handler = new ISVNLogEntryHandler() {
+            @Override
+            public void handleLogEntry(SVNLogEntry arg0) throws SVNException {
+                Map<String, SVNLogEntryPath> map = arg0.getChangedPaths();
+                for (Map.Entry<String, SVNLogEntryPath> entry: map.entrySet()) {
+                	if (branchNames[0] == null) {
+	                    SVNLogEntryPath svnLogEntryPath = entry.getValue();
+	                    branchNames[0] = svnLogEntryPath.getPath().replace(filePath, "").replaceFirst("/", "");
+                	}
+                }   
+            }
+        }; 
+		
+        try {
+        	repository.log(new String[] {""}, Long.parseLong(revision),  Long.parseLong(revision), true, true, 1, handler);
+        	return getFileContent(branchNames[0].equals(MASTER_PATH) ? null : branchNames[0], filePath, revision);
+        } catch (SVNException e) {
+			throw new EVCSException(e);
+			
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	private String getFileContent(String branchName, String filePath, String revision) {
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		try {
 			repository.getFile(new File(getBranchName(branchName), filePath).getPath().replace("\\", "/"),
@@ -239,7 +269,7 @@ public class SVNVCS implements IVCS {
 				} catch (SVNException e1) {
 					throw new EVCSException(e1);
 				}
-				throw new EVCSFileNotFound(getRepoUrl(), getBranchName(branchName), filePath, revision);
+				throw new EVCSFileNotFound(getRepoUrl(), filePath, revision);
 			}
 			throw new EVCSException(e);
 		} catch (Exception e) {

@@ -267,7 +267,7 @@ public class SVNVCSTest extends VCSAbstractTest {
 		svn.setSVNRepository(mockedRepo);
 		doThrow(testSVNException).when(mockedRepo).getFile(anyString(), anyLong(), any(SVNProperties.class), any(OutputStream.class));
 		try {
-			vcs.getFileContent("", "", "");
+			vcs.getFileContentFromBranch("", "");
 			fail();
 		} catch (EVCSException e) {
 			checkEVCSException(e);
@@ -276,7 +276,7 @@ public class SVNVCSTest extends VCSAbstractTest {
 		SVNRepository repo = svn.getSVNRepository();
 		svn.setSVNRepository(null);
 		try {
-			vcs.getFileContent("", "", "");
+			vcs.getFileContentFromBranch("", "");
 			fail();
 		} catch (RuntimeException e) {
 			assertTrue(e.getCause() instanceof NullPointerException);
@@ -286,7 +286,7 @@ public class SVNVCSTest extends VCSAbstractTest {
 		doCallRealMethod().when(mockedRepo).getFile(anyString(), anyLong(), any(SVNProperties.class), any(OutputStream.class));
 		doThrow(testSVNException).when(mockedRepo).checkPath(anyString(), anyLong());
 		try {
-			vcs.getFileContent("wrong-branch", "", "");
+			vcs.getFileContentFromBranch("wrong-branch", "");
 			fail();
 		} catch (EVCSException e) {
 			checkEVCSException(e);
